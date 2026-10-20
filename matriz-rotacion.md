@@ -18,7 +18,7 @@ Reglas:
 | Jan Janos | E2E | API | | | | | | | |
 | Alejandra Guio | E2E | BD | | | | | | | |
 
-## Cobertura semanal
+## Cobertura semanal 
 
 Anota la cobertura real al cerrar cada semana. El umbral de la semana siguiente es el mayor entre el piso del plan y este valor, redondeado hacia abajo.
 
