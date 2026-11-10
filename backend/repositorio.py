@@ -24,6 +24,19 @@ class RegistroRelacionado(Exception):
     """El registro no se puede borrar porque otros registros dependen de él."""
 
 
+class DatoDuplicado(Exception):
+    """Se viola una restricción UNIQUE (por ejemplo, el documento de un estudiante)."""
+
+
+class ReferenciaInexistente(Exception):
+    """Una llave foránea apunta a un registro que no existe (grupo, estudiante, materia…)."""
+
+
+# Códigos SQLSTATE de PostgreSQL
+_UNIQUE_VIOLATION = "23505"
+_FOREIGN_KEY_VIOLATION = "23503"
+
+
 def _filas(resultado) -> list[dict[str, Any]]:
     return [dict(fila._mapping) for fila in resultado]
 
@@ -50,6 +63,20 @@ class Repositorio:
 
     def confirmar(self) -> None:
         self.db.commit()
+
+    def _escribir(self, sql: str, parametros: dict) -> Optional[dict]:
+        """INSERT/UPDATE ... RETURNING que traduce las violaciones de restricciones
+        a errores del dominio, para que el API responda 409/422 y no 500."""
+        try:
+            return _fila(self.db.execute(text(sql), parametros))
+        except IntegrityError as error:
+            self.db.rollback()
+            codigo = getattr(error.orig, "sqlstate", None)
+            if codigo == _UNIQUE_VIOLATION:
+                raise DatoDuplicado() from error
+            if codigo == _FOREIGN_KEY_VIOLATION:
+                raise ReferenciaInexistente() from error
+            raise
 
     def _borrar_protegido(self, sql: str, id: int) -> None:
         try:
@@ -179,17 +206,17 @@ class Repositorio:
         return _filas(self.db.execute(text(sql + " ORDER BY e.id ASC"), parametros))
 
     def crear_estudiante(self, d: dict) -> dict:
-        return _fila(self.db.execute(text("""
+        return self._escribir("""
             INSERT INTO estudiantes (documento, nombre, apellido, grupo_id, activo)
             VALUES (:documento, :nombre, :apellido, :grupo_id, :activo) RETURNING *
-        """), d))
+        """, d)
 
     def actualizar_estudiante(self, id: int, d: dict) -> Optional[dict]:
-        return _fila(self.db.execute(text("""
+        return self._escribir("""
             UPDATE estudiantes SET documento = :documento, nombre = :nombre, apellido = :apellido,
                 grupo_id = :grupo_id, activo = :activo
             WHERE id = :id RETURNING *
-        """), {**d, "id": id}))
+        """, {**d, "id": id})
 
     def eliminar_estudiante(self, id: int) -> bool:
         return self.db.execute(text("DELETE FROM estudiantes WHERE id = :id RETURNING id"), {"id": id}).first() is not None
@@ -224,17 +251,17 @@ class Repositorio:
         return _filas(self.db.execute(text(sql + " ORDER BY act.fecha_entrega ASC"), parametros))
 
     def crear_actividad(self, d: dict) -> dict:
-        return _fila(self.db.execute(text("""
+        return self._escribir("""
             INSERT INTO actividades (materia_id, grupo_id, titulo, tipo, descripcion, fecha_entrega)
             VALUES (:materia_id, :grupo_id, :titulo, :tipo, :descripcion, :fecha_entrega) RETURNING *
-        """), d))
+        """, d)
 
     def actualizar_actividad(self, id: int, d: dict) -> Optional[dict]:
-        return _fila(self.db.execute(text("""
+        return self._escribir("""
             UPDATE actividades SET materia_id = :materia_id, grupo_id = :grupo_id, titulo = :titulo, tipo = :tipo,
                 descripcion = :descripcion, fecha_entrega = :fecha_entrega
             WHERE id = :id RETURNING *
-        """), {**d, "id": id}))
+        """, {**d, "id": id})
 
     def eliminar_actividad(self, id: int) -> bool:
         return self.db.execute(text("DELETE FROM actividades WHERE id = :id RETURNING id"), {"id": id}).first() is not None
@@ -254,17 +281,17 @@ class Repositorio:
         return _filas(self.db.execute(text(sql + " ORDER BY c.fecha_registro DESC"), parametros))
 
     def crear_calificacion(self, d: dict) -> dict:
-        return _fila(self.db.execute(text("""
+        return self._escribir("""
             INSERT INTO calificaciones (estudiante_id, materia_id, actividad_id, nota, periodo, observacion)
             VALUES (:estudiante_id, :materia_id, :actividad_id, :nota, :periodo, :observacion) RETURNING *
-        """), d))
+        """, d)
 
     def actualizar_calificacion(self, id: int, d: dict) -> Optional[dict]:
-        return _fila(self.db.execute(text("""
+        return self._escribir("""
             UPDATE calificaciones SET estudiante_id = :estudiante_id, materia_id = :materia_id,
                 actividad_id = :actividad_id, nota = :nota, periodo = :periodo, observacion = :observacion
             WHERE id = :id RETURNING *
-        """), {**d, "id": id}))
+        """, {**d, "id": id})
 
     def eliminar_calificacion(self, id: int) -> bool:
         return self.db.execute(text("DELETE FROM calificaciones WHERE id = :id RETURNING id"), {"id": id}).first() is not None
@@ -287,9 +314,9 @@ class Repositorio:
         """)))
 
     def crear_observacion(self, d: dict) -> dict:
-        return _fila(self.db.execute(text("""
+        return self._escribir("""
             INSERT INTO observaciones (estudiante_id, tipo, descripcion) VALUES (:estudiante_id, :tipo, :descripcion) RETURNING *
-        """), d))
+        """, d)
 
     def eliminar_observacion(self, id: int) -> bool:
         return self.db.execute(text("DELETE FROM observaciones WHERE id = :id RETURNING id"), {"id": id}).first() is not None
@@ -302,9 +329,9 @@ class Repositorio:
         """)))
 
     def crear_alerta(self, d: dict) -> dict:
-        return _fila(self.db.execute(text("""
+        return self._escribir("""
             INSERT INTO alertas (estudiante_id, tipo, mensaje, estado) VALUES (:estudiante_id, :tipo, :mensaje, :estado) RETURNING *
-        """), d))
+        """, d)
 
     def actualizar_estado_alerta(self, id: int, estado: str) -> Optional[dict]:
         return _fila(self.db.execute(text("UPDATE alertas SET estado = :estado WHERE id = :id RETURNING *"),
@@ -336,10 +363,10 @@ class Repositorio:
                                {"m": materia_id, "g": grupo_id}).first() is not None
 
     def crear_asignacion(self, d: dict) -> dict:
-        return _fila(self.db.execute(text("""
+        return self._escribir("""
             INSERT INTO asignaciones (docente_id, materia_id, grupo_id) VALUES (:docente_id, :materia_id, :grupo_id)
             RETURNING id, docente_id, materia_id, grupo_id
-        """), d))
+        """, d)
 
     def eliminar_asignacion(self, id: int) -> bool:
         return self.db.execute(text("DELETE FROM asignaciones WHERE id = :id RETURNING id"), {"id": id}).first() is not None
