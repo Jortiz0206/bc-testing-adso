@@ -10,19 +10,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { api } from "@/api/client";
 import { toast } from "sonner";
 import PageHeader from "@/components/layout/PageHeader";
+import { construirFilas, payloadCalificacion, resumenCalificaciones, type CalificacionRow } from "@/lib/calificaciones";
+import { limitarPorcentaje } from "@/lib/rendimiento";
 
 interface Grupo { id: string; nombre: string; }
 interface Actividad { id: string; titulo: string; tipo: string; grupo_id: string; }
 interface Estudiante { id: string; nombre: string; apellido: string; }
-interface CalificacionRow {
-  estudiante_id: string;
-  nombre: string;
-  apellido: string;
-  calificacion: number;
-  entregado: boolean;
-  id?: string;
-}
-
 const Calificaciones = () => {
   const [grupos, setGrupos] = useState<Grupo[]>([]);
   const [actividades, setActividades] = useState<Actividad[]>([]);
@@ -76,37 +69,14 @@ const Calificaciones = () => {
   const loadCalificaciones = async () => {
     setLoading(true);
     try {
-      const actividad = actividades.find((item) => String(item.id) === String(selectedActividad));
       const [estRes, calRes] = await Promise.all([
         api.get(`/estudiantes?grupo_id=${selectedGrupo}`),
         api.get("/calificaciones"),
       ]);
 
-      const estudiantesRaw = Array.isArray(estRes) ? estRes : (estRes as any)?.items || [];
-      const estudiantes = estudiantesRaw
-        .filter((e: any) => String(e.grupo_id) === String(selectedGrupo))
-        .sort((a: any, b: any) => String(a.apellido).localeCompare(String(b.apellido)));
-
-      // Importante: filtrar por actividad_id (no solo materia_id). Una materia puede
-      // tener varias actividades para el mismo grupo; filtrar solo por materia_id
-      // mezclaba la nota de una actividad distinta y, al guardar, podía reasignarla
-      // silenciosamente a la actividad seleccionada.
-      const calsRaw = Array.isArray(calRes) ? calRes : (calRes as any)?.items || [];
-      const cals = calsRaw.filter((c: any) => String(c.actividad_id) === String(selectedActividad));
-
-      const calMap = new Map(cals.map((c: any) => [String(c.estudiante_id), c]));
-
-      const rows: CalificacionRow[] = estudiantes.map((e: any) => {
-        const existing = calMap.get(String(e.id)) as any;
-        return {
-          estudiante_id: String(e.id),
-          nombre: String(e.nombre || ""),
-          apellido: String(e.apellido || ""),
-          calificacion: existing ? Number(existing.calificacion ?? Number(existing.nota || 0) * 20) : 0,
-          entregado: Boolean(existing),
-          id: existing ? String(existing.id) : undefined,
-        };
-      });
+      const estudiantes = Array.isArray(estRes) ? estRes : (estRes as any)?.items || [];
+      const calificacionesApi = Array.isArray(calRes) ? calRes : (calRes as any)?.items || [];
+      const rows = construirFilas({ estudiantes, calificaciones: calificacionesApi, grupoId: selectedGrupo, actividadId: selectedActividad });
       setCalificaciones(rows);
     } catch (error) {
       toast.error("Error al cargar las calificaciones");
@@ -116,7 +86,7 @@ const Calificaciones = () => {
   };
 
   const updateCalificacion = (idx: number, value: number) => {
-    setCalificaciones(prev => prev.map((c, i) => i === idx ? { ...c, calificacion: Math.min(100, Math.max(0, value)) } : c));
+    setCalificaciones(prev => prev.map((c, i) => i === idx ? { ...c, calificacion: limitarPorcentaje(value) } : c));
   };
 
   const toggleEntregado = (idx: number) => {
@@ -128,13 +98,8 @@ const Calificaciones = () => {
     setSaving(true);
     try {
       for (const c of calificaciones) {
-        const payload = {
-          estudiante_id: c.estudiante_id,
-          materia_id: Number((actividades.find((item) => String(item.id) === String(selectedActividad)) as any)?.materia_id),
-          actividad_id: Number(selectedActividad),
-          nota: Number((c.calificacion / 20).toFixed(1)),
-          observacion: c.entregado ? "Actividad entregada" : null,
-        };
+        const materiaId = Number((actividades.find((item) => String(item.id) === String(selectedActividad)) as any)?.materia_id);
+        const payload = payloadCalificacion(c, materiaId, Number(selectedActividad));
 
         if (c.id) {
           await api.put(`/calificaciones/${c.id}`, payload);
@@ -151,11 +116,7 @@ const Calificaciones = () => {
     }
   };
 
-  const promedio = calificaciones.length > 0
-    ? Math.round(calificaciones.reduce((s, c) => s + c.calificacion, 0) / calificaciones.length)
-    : 0;
-  const entregados = calificaciones.filter(c => c.entregado).length;
-  const aprobados = calificaciones.filter(c => c.calificacion >= 70).length;
+  const { promedio, entregados, aprobados } = resumenCalificaciones(calificaciones);
 
   const getCalColor = (cal: number) => {
     if (cal >= 90) return "text-emerald-600 dark:text-emerald-400";
