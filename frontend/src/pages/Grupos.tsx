@@ -74,6 +74,8 @@ const Grupos = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newCurso, setNewCurso] = useState("");
   const [newTurno, setNewTurno] = useState("");
+  // Evita el doble envío (antes un doble clic creaba dos grupos).
+  const [creating, setCreating] = useState(false);
 
   const fetchGrupos = async () => {
     setLoading(true);
@@ -133,6 +135,8 @@ const Grupos = () => {
       toast.error("Completa todos los campos");
       return;
     }
+    if (creating) return;
+    setCreating(true);
     try {
       await api.post("/grupos", {
         nombre: curso.nombre,
@@ -146,6 +150,8 @@ const Grupos = () => {
       fetchGrupos();
     } catch (error) {
       toast.error("Error al crear grupo");
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -208,10 +214,10 @@ const Grupos = () => {
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Buscar grupo..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          <Input aria-label="Buscar grupo" placeholder="Buscar grupo..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Select value={filterGrado} onValueChange={setFilterGrado}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Grado" /></SelectTrigger>
+          <SelectTrigger className="w-[160px]" aria-label="Filtrar por grado"><SelectValue placeholder="Grado" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos los grados</SelectItem>
             {Array.from(new Set(grupos.map((g) => g.grado))).sort().map((grado) => (
@@ -220,7 +226,7 @@ const Grupos = () => {
           </SelectContent>
         </Select>
         <Select value={filterTurno} onValueChange={setFilterTurno}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Turno" /></SelectTrigger>
+          <SelectTrigger className="w-[160px]" aria-label="Filtrar por turno"><SelectValue placeholder="Turno" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos los turnos</SelectItem>
             <SelectItem value="Matutino">Matutino</SelectItem>
@@ -247,7 +253,7 @@ const Grupos = () => {
                   {(grupo.alertasCount || 0) > 0 && (
                     <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">{grupo.alertasCount} alertas</Badge>
                   )}
-                  <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button variant="ghost" size="icon" aria-label={`Opciones de ${grupo.nombre}`} className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
                     <MoreVertical className="w-4 h-4" />
                   </Button>
                 </div>
@@ -301,9 +307,9 @@ const Grupos = () => {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Curso</Label>
+              <Label htmlFor="grupo-curso">Curso</Label>
               <Select value={newCurso} onValueChange={setNewCurso}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar curso" /></SelectTrigger>
+                <SelectTrigger id="grupo-curso"><SelectValue placeholder="Seleccionar curso" /></SelectTrigger>
                 <SelectContent>
                   {CURSOS_DISPONIBLES.map((curso) => (
                     <SelectItem key={curso.value} value={curso.value}>{curso.value}</SelectItem>
@@ -312,9 +318,9 @@ const Grupos = () => {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Turno</Label>
+              <Label htmlFor="grupo-turno">Turno</Label>
               <Select value={newTurno} onValueChange={setNewTurno}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar turno" /></SelectTrigger>
+                <SelectTrigger id="grupo-turno"><SelectValue placeholder="Seleccionar turno" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Matutino">Matutino</SelectItem>
                   <SelectItem value="Vespertino">Vespertino</SelectItem>
@@ -324,7 +330,7 @@ const Grupos = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreate}>Crear grupo</Button>
+            <Button onClick={handleCreate} disabled={creating}>Crear grupo</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

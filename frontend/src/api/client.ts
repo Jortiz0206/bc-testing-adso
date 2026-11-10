@@ -17,7 +17,13 @@ export async function apiFetch<T>(endpoint: string, options?: RequestInit): Prom
   }
 
   if (response.status === 204) return undefined as T;
-  return response.json();
+  try {
+    return await response.json();
+  } catch {
+    // Un proxy o un servidor caído pueden responder 200 con HTML: no se muestra
+    // "Unexpected token <" a la persona usuaria, sino un mensaje entendible.
+    throw new Error("Respuesta inválida del servidor");
+  }
 }
 
 export const api = {
