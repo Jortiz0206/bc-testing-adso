@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Lock, ArrowLeft } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/client";
 import logoC from "@/assets/logo-ClassKids.png";
 import { noClipboardProps } from "@/lib/passwordField";
@@ -16,14 +16,16 @@ const ResetPassword = () => {
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token");
 
   useEffect(() => {
     // El backend entrega el token de recuperación como query param ?token=...
-    // (ver enviar_reset_por_correo en backend/main.py). Sin token, el enlace
+    // (ver /auth/forgot-password en backend/main.py). Sin token, el enlace
     // no es válido y se debe mostrar el mensaje de "enlace inválido o expirado".
-    const token = new URLSearchParams(window.location.search).get("token");
+    // Se lee del router (no de window.location) para que funcione igual en los tests.
     setReady(!!token);
-  }, []);
+  }, [token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +42,6 @@ const ResetPassword = () => {
 
     setLoading(true);
     try {
-      const token = new URLSearchParams(window.location.search).get("token");
       await api.post("/auth/reset-password", { password, token });
       toast.success("¡Contraseña actualizada con éxito!");
       navigate("/auth");
