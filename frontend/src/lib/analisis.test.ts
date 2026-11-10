@@ -111,6 +111,25 @@ describe("calcularAnalisis", () => {
   });
 });
 
+describe("calcularAnalisis con datos incompletos del API", () => {
+  it("usa created_at o fecha cuando falta fecha_registro y tolera nombres vacíos", () => {
+    const r = calcularAnalisis({
+      grupos: [{ id: 1 }],
+      estudiantes: [{ id: 5, grupo_id: 9 }], // grupo que no existe
+      calificaciones: [
+        { estudiante_id: 5, nota: 1, created_at: "2026-04-10T12:00:00", periodo: null },
+        { estudiante_id: 5, nota: 1, fecha: "2026-04-11T12:00:00" },
+        { estudiante_id: 99, nota: 5 }, // estudiante que no existe
+      ],
+      actividades: [],
+    });
+
+    expect(r.tendenciaMensual).toEqual([{ mes: "Abr 26", promedio: 20 }]);
+    expect(r.rendimientoPorGrupo).toEqual([{ grupo: "", promedio: 0, estudiantes: 0 }]);
+    expect(r.estudiantesEnRiesgo).toEqual([{ nombre: "", apellido: "", grupo: "", promedio: 20, tendencia: "estable" }]);
+  });
+});
+
 describe("etiquetaMes", () => {
   it.each([
     [2026, 0, "Ene 26"],

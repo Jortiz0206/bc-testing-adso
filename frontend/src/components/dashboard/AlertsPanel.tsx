@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { AlertTriangle, Clock, TrendingDown } from "lucide-react";
 import { api } from "../../api/client";
 import { Alerta } from "../../types";
+import { tiempoTranscurrido } from "@/lib/fechas";
+import { esAlertaActiva } from "@/lib/rendimiento";
 
 interface AlertUI {
   id: number;
@@ -19,17 +21,6 @@ const typeConfig: Record<string, { icon: typeof AlertTriangle; color: string; bg
   "critical": { icon: AlertTriangle, color: "text-destructive", bg: "bg-destructive/10" },
 };
 
-const formatDate = (dateStr?: string) => {
-  if (!dateStr) return "Reciente";
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diffDays = Math.floor((now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays <= 0) return "Hoy";
-  if (diffDays === 1) return "Ayer";
-  if (diffDays < 7) return `Hace ${diffDays} días`;
-  return `Hace ${Math.floor(diffDays / 7)} semana(s)`;
-};
-
 const AlertsPanel = () => {
   const [alerts, setAlerts] = useState<AlertUI[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,13 +33,14 @@ const AlertsPanel = () => {
         const data = await api.get<Alerta[]>("/alertas");
 
         // Mapeo desde la estructura de FastAPI hacia la interfaz visual
-        const mapped: AlertUI[] = (data || []).map((a) => ({
+        // Solo las alertas sin resolver: el contador dice "activas".
+        const mapped: AlertUI[] = (data || []).filter(esAlertaActiva).map((a) => ({
           id: a.id,
           student: `${a.estudiante_nombre || ""} ${a.estudiante_apellido || ""}`.trim() || "Estudiante",
           group: "Activo",
           type: a.tipo,
           message: a.mensaje,
-          date: formatDate(a.fecha_creacion),
+          date: a.fecha_creacion ? tiempoTranscurrido(a.fecha_creacion) : "Reciente",
         }));
 
         setAlerts(mapped);
