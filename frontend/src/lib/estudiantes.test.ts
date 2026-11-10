@@ -50,6 +50,17 @@ describe("enriquecerEstudiantes", () => {
   });
 });
 
+// Incidencia INC-1 (docs/incidencias.md): sin notas, el promedio se toma como 0 y el
+// estudiante queda "en riesgo" (en el Dashboard, en cambio, aparece como "good").
+// Queda como fallo esperado hasta que el grupo decida la regla con el colegio.
+it.fails("INC-1: un estudiante sin notas ni alertas no queda 'en riesgo' solo por no tener notas", () => {
+  const [vista] = enriquecerEstudiantes({
+    grupos: [], estudiantes: [{ id: 1, nombre: "Ana", apellido: "Ruiz" }], calificaciones: [], alertas: [],
+  });
+
+  expect(vista.estado).toBe("activo");
+});
+
 describe("filtrarEstudiantes", () => {
   const base = { documento: "", grupo_nombre: "", tendencia: "estable", promedio: 0, alertas: 0 } as const;
   const lista: EstudianteView[] = [
