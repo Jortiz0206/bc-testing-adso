@@ -3,6 +3,7 @@
 Antes vivían mezcladas dentro de los endpoints de main.py; se extrajeron aquí
 para poder probarlas con tests unitarios rápidos (sin BD ni servidor).
 """
+from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
 from fastapi import HTTPException
@@ -63,3 +64,11 @@ def destino_de_recuperacion(redirect_to: str | None, origenes_permitidos: list[s
 def requiere_alerta_por_promedio(promedio: float | None) -> bool:
     """Se alerta cuando el promedio acumulado del estudiante baja de 3.0."""
     return promedio is not None and float(promedio) < PROMEDIO_MINIMO_SIN_ALERTA
+
+
+def ahora_utc() -> datetime:
+    """Hora actual en UTC sin zona horaria, igual que CURRENT_TIMESTAMP en la BD.
+
+    Reemplaza a datetime.utcnow(), obsoleto desde Python 3.12.
+    """
+    return datetime.now(timezone.utc).replace(tzinfo=None)

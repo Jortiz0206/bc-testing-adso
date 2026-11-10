@@ -5,6 +5,7 @@ Complementa test_api_estudiantes.py para llevar el backend por encima del piso d
 from datetime import datetime, timedelta
 
 import pytest
+from reglas import ahora_utc
 
 
 # --- Grupos y materias: borrado protegido por relaciones ---------------------
@@ -184,7 +185,7 @@ def test_should_not_invite_an_existing_active_user(client, repo, auth_admin, has
 
 def test_reset_password_should_work_once_with_a_valid_token(client, repo, hash_password):
     repo.agregar_usuario("laura@classkids.local", hash_password("vieja12"))
-    repo.guardar_token_recuperacion("laura@classkids.local", "tok", datetime.utcnow() + timedelta(minutes=30))
+    repo.guardar_token_recuperacion("laura@classkids.local", "tok", ahora_utc() + timedelta(minutes=30))
 
     corta = client.post("/auth/reset-password", json={"token": "tok", "password": "123"})
     sin_token = client.post("/auth/reset-password", json={"password": "nueva123"})
@@ -197,7 +198,7 @@ def test_reset_password_should_work_once_with_a_valid_token(client, repo, hash_p
 
 def test_expired_reset_token_should_be_rejected(client, repo, hash_password):
     repo.agregar_usuario("laura@classkids.local", hash_password("vieja12"))
-    repo.guardar_token_recuperacion("laura@classkids.local", "vencido", datetime.utcnow() - timedelta(minutes=1))
+    repo.guardar_token_recuperacion("laura@classkids.local", "vencido", ahora_utc() - timedelta(minutes=1))
 
     assert client.post("/auth/reset-password", json={"token": "vencido", "password": "nueva123"}).status_code == 400
 

@@ -11,6 +11,7 @@ from itertools import count
 from typing import Optional
 
 from repositorio import DatoDuplicado, ReferenciaInexistente, RegistroRelacionado
+from reglas import ahora_utc
 
 
 class FakeRepositorio:
@@ -136,14 +137,14 @@ class FakeRepositorio:
 
     def buscar_token_recuperacion_vigente(self, token: str) -> Optional[dict]:
         t = next((t for t in self.tokens_recuperacion if t["token"] == token and t["used_at"] is None
-                  and t["expires_at"] > datetime.utcnow()), None)
+                  and t["expires_at"] > ahora_utc()), None)
         return {"id": t["id"], "email": t["email"]} if t else None
 
     def cambiar_password_con_token(self, token_id: int, email: str, password_hash: str) -> None:
         for u in self.usuarios:
             if u["email"].lower() == email.lower():
                 u["password_hash"] = password_hash
-        self._buscar(self.tokens_recuperacion, token_id)["used_at"] = datetime.utcnow()
+        self._buscar(self.tokens_recuperacion, token_id)["used_at"] = ahora_utc()
 
     # ------------------------------------------------------------ invitaciones
     def crear_invitacion(self, email: str, rol_id: int, token: str, vence: datetime) -> None:
@@ -151,7 +152,7 @@ class FakeRepositorio:
 
     def buscar_invitacion_vigente(self, token: str) -> Optional[dict]:
         i = next((i for i in self.invitaciones if i["token"] == token and i["accepted_at"] is None
-                  and i["expires_at"] > datetime.utcnow()), None)
+                  and i["expires_at"] > ahora_utc()), None)
         return {"email": i["email"], "rol_id": i["rol_id"], "rol": self._nombre_rol(i["rol_id"])} if i else None
 
     def aceptar_invitacion(self, token, email, nombre, apellido, password_hash, rol_id) -> None:
@@ -161,7 +162,7 @@ class FakeRepositorio:
             existente.update(datos)
         else:
             self._nuevo(self.usuarios, {"email": email, "created_at": datetime(2026, 1, 1), "last_sign_in_at": None, **datos})
-        next(i for i in self.invitaciones if i["token"] == token)["accepted_at"] = datetime.utcnow()
+        next(i for i in self.invitaciones if i["token"] == token)["accepted_at"] = ahora_utc()
 
     # ------------------------------------------------------------------ grupos
     def listar_grupos(self) -> list[dict]:
@@ -227,7 +228,7 @@ class FakeRepositorio:
     def listar_actividades(self, grupo_id: Optional[int] = None) -> list[dict]:
         materias = {m["id"]: m["nombre"] for m in self.materias}
         grupos = {g["id"]: g["nombre"] for g in self.grupos}
-        hoy = datetime.utcnow().date().isoformat()
+        hoy = ahora_utc().date().isoformat()
         filas = [{
             **a, "materia_nombre": materias.get(a["materia_id"]), "grupo_nombre": grupos.get(a["grupo_id"]),
             "estado": "vencida" if a.get("fecha_entrega") and a["fecha_entrega"] < hoy else "pendiente",

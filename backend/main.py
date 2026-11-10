@@ -18,7 +18,7 @@ from esquemas import (
 )
 from reglas import (
     destino_de_recuperacion, nombre_rol_bd, normalize_alert_status, password_es_valida,
-    requiere_alerta_por_promedio, rol_de_sesion,
+    ahora_utc, requiere_alerta_por_promedio, rol_de_sesion,
 )
 from notificador import Notificador, get_notificador
 from repositorio import DatoDuplicado, ReferenciaInexistente, RegistroRelacionado, Repositorio, get_repo
@@ -109,7 +109,7 @@ ADMIN_PREFIXES = ("/usuarios", "/docentes", "/admins")
 
 
 def create_access_token(user_id: int, role: str) -> str:
-    expires = datetime.utcnow() + timedelta(hours=8)
+    expires = ahora_utc() + timedelta(hours=8)
     return jwt.encode({"sub": str(user_id), "role": role, "exp": expires}, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
@@ -186,7 +186,7 @@ def solicitar_recuperacion(data: ForgotPasswordSchema, repo: Repositorio = Depen
     email_sent = False
     if repo.existe_usuario_activo(email):
         reset_token = token_urlsafe(24)
-        repo.guardar_token_recuperacion(email, reset_token, datetime.utcnow() + timedelta(minutes=RESET_TOKEN_TTL_MINUTES))
+        repo.guardar_token_recuperacion(email, reset_token, ahora_utc() + timedelta(minutes=RESET_TOKEN_TTL_MINUTES))
         repo.confirmar()
         # `redirect_to` lo envía el cliente: ver reglas.destino_de_recuperacion.
         frontend_base = destino_de_recuperacion(
@@ -249,7 +249,7 @@ def invitar_usuario(data: InvitationSchema, repo: Repositorio = Depends(get_repo
     if rol_id is None:
         raise HTTPException(status_code=500, detail="Rol no configurado")
     token = token_urlsafe(48)
-    repo.crear_invitacion(email, rol_id, token, datetime.utcnow() + timedelta(days=2))
+    repo.crear_invitacion(email, rol_id, token, ahora_utc() + timedelta(days=2))
     repo.confirmar()
     invitation_url = f"{os.getenv('FRONTEND_URL', 'http://127.0.0.1:8080')}/invitacion?token={token}"
     try:

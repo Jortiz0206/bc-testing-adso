@@ -93,3 +93,18 @@ def test_should_fall_back_to_frontend_url_when_redirect_is_not_allowed(redirect_
 )
 def test_should_require_low_grade_alert_only_below_three(promedio, requiere):
     assert requiere_alerta_por_promedio(promedio) is requiere
+
+
+# --- S9 (rol Backend, Jan Janos): reloj sin la API obsoleta datetime.utcnow() ----
+
+def test_ahora_utc_should_be_naive_utc_like_the_database_timestamps():
+    from datetime import datetime, timezone
+
+    from reglas import ahora_utc
+
+    antes = datetime.now(timezone.utc).replace(tzinfo=None)
+    valor = ahora_utc()
+    despues = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    assert valor.tzinfo is None  # se compara con columnas TIMESTAMP sin zona
+    assert antes <= valor <= despues

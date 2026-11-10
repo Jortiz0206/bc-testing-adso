@@ -5,6 +5,7 @@ import pytest
 from jose import jwt
 
 import main
+from reglas import ahora_utc
 
 
 def token_con(claims: dict, secreto: str = None) -> dict:
@@ -27,9 +28,9 @@ def test_should_answer_401_json_without_token(client, ruta):
         {"Authorization": "Bearer no-es-un-jwt"},
         {"Authorization": "Basic YWRtaW46YWRtaW4="},
         # Firmado con otro secreto: alguien que se fabrica un token de admin
-        token_con({"sub": "1", "role": "admin", "exp": datetime.utcnow() + timedelta(hours=1)}, secreto="otro-secreto"),
+        token_con({"sub": "1", "role": "admin", "exp": ahora_utc() + timedelta(hours=1)}, secreto="otro-secreto"),
         # Vencido
-        token_con({"sub": "1", "role": "admin", "exp": datetime.utcnow() - timedelta(minutes=1)}),
+        token_con({"sub": "1", "role": "admin", "exp": ahora_utc() - timedelta(minutes=1)}),
     ],
 )
 def test_should_reject_invalid_forged_or_expired_tokens(client, encabezado):
