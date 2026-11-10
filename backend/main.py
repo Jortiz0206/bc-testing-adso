@@ -7,8 +7,6 @@ from secrets import token_urlsafe
 from datetime import datetime, timedelta
 import logging
 import os
-import smtplib
-from email.message import EmailMessage
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from dotenv import load_dotenv
@@ -22,6 +20,7 @@ from reglas import (
     destino_de_recuperacion, nombre_rol_bd, normalize_alert_status, password_es_valida,
     requiere_alerta_por_promedio, rol_de_sesion,
 )
+from notificador import Notificador, get_notificador
 from repositorio import RegistroRelacionado, Repositorio, get_repo
 
 load_dotenv()
@@ -165,24 +164,11 @@ def iniciar_sesion(credentials: LoginSchema, repo: Repositorio = Depends(get_rep
         "user": {"id": user["id"], "email": user["email"], "nombre": user["nombre"], "apellido": user["apellido"], "rol": role},
     }
 
-def enviar_reset_por_correo(email: str, reset_url: str) -> bool:
-    host = os.getenv("SMTP_HOST")
-    if not host:
-        return False
-    message = EmailMessage()
-    message["Subject"] = "Recuperación de contraseña - ClassKids"
-    message["From"] = os.getenv("SMTP_FROM", "no-reply@classkids.local")
-    message["To"] = email
-    message.set_content(f"Solicitaste restablecer tu contraseña. Usa este enlace (vence en {RESET_TOKEN_TTL_MINUTES} minutos): {reset_url}")
-    with smtplib.SMTP(host, int(os.getenv("SMTP_PORT", "587")), timeout=10) as smtp:
-        smtp.starttls()
-        smtp.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
-        smtp.send_message(message)
-    return True
 
 
 @app.post("/auth/forgot-password", tags=["Autenticación"])
-def solicitar_recuperacion(data: ForgotPasswordSchema, repo: Repositorio = Depends(get_repo)):
+def solicitar_recuperacion(data: ForgotPasswordSchema, repo: Repositorio = Depends(get_repo),
+                           notificador: Notificador = Depends(get_notificador)):
     email = data.email.strip().lower()
 
     email_sent = False
@@ -196,7 +182,11 @@ def solicitar_recuperacion(data: ForgotPasswordSchema, repo: Repositorio = Depen
         )
         reset_url = f"{frontend_base.rstrip('/')}?token={reset_token}"
         try:
-            email_sent = enviar_reset_por_correo(email, reset_url)
+            email_sent = notificador.enviar(
+                email,
+                "Recuperación de contraseña - ClassKids",
+                f"Solicitaste restablecer tu contraseña. Usa este enlace (vence en {RESET_TOKEN_TTL_MINUTES} minutos): {reset_url}",
+            )
         except Exception:
             # No exponemos detalles del error SMTP al cliente; el token ya quedó
             # registrado y puede reintentarse o revisarse por soporte/logs.
@@ -222,20 +212,6 @@ def restablecer_password(data: ResetPasswordSchema, repo: Repositorio = Depends(
     return {"mensaje": "Contraseña actualizada correctamente"}
 
 
-def enviar_invitacion_por_correo(email: str, invitation_url: str) -> bool:
-    host = os.getenv("SMTP_HOST")
-    if not host:
-        return False
-    message = EmailMessage()
-    message["Subject"] = "Invitación a ClassKids"
-    message["From"] = os.getenv("SMTP_FROM", "no-reply@classkids.local")
-    message["To"] = email
-    message.set_content(f"Has sido invitado a ClassKids. Activa tu cuenta aquí: {invitation_url}")
-    with smtplib.SMTP(host, int(os.getenv("SMTP_PORT", "587")), timeout=10) as smtp:
-        smtp.starttls()
-        smtp.login(os.getenv("SMTP_USER", ""), os.getenv("SMTP_PASSWORD", ""))
-        smtp.send_message(message)
-    return True
 
 
 # =================================================================
@@ -252,7 +228,8 @@ def obtener_catalogo_docentes(repo: Repositorio = Depends(get_repo)):
 
 
 @app.post("/usuarios/invitar", tags=["Usuarios"])
-def invitar_usuario(data: InvitationSchema, repo: Repositorio = Depends(get_repo)):
+def invitar_usuario(data: InvitationSchema, repo: Repositorio = Depends(get_repo),
+                    notificador: Notificador = Depends(get_notificador)):
     email = data.email.strip().lower()
     if repo.existe_usuario_activo(email):
         raise HTTPException(status_code=409, detail="El usuario ya existe")
@@ -263,7 +240,15 @@ def invitar_usuario(data: InvitationSchema, repo: Repositorio = Depends(get_repo
     repo.crear_invitacion(email, rol_id, token, datetime.utcnow() + timedelta(days=2))
     repo.confirmar()
     invitation_url = f"{os.getenv('FRONTEND_URL', 'http://127.0.0.1:8080')}/invitacion?token={token}"
-    email_sent = enviar_invitacion_por_correo(email, invitation_url)
+    try:
+        email_sent = notificador.enviar(
+            email, "Invitación a ClassKids", f"Has sido invitado a ClassKids. Activa tu cuenta aquí: {invitation_url}"
+        )
+    except Exception:
+        # La invitación ya quedó guardada: si el correo falla, el admin todavía
+        # puede compartir el enlace que devuelve la respuesta.
+        logger.exception("No se pudo enviar la invitación a %s", email)
+        email_sent = False
     return {"mensaje": "Invitación creada", "email_sent": email_sent, "invitation_url": invitation_url}
 
 @app.put("/usuarios/{user_id}/rol", tags=["Usuarios"])
