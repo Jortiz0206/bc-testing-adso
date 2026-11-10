@@ -27,8 +27,9 @@ export default defineConfig({
         // Infraestructura de pruebas.
         "src/test/**",
       ],
-      // Línea base de la semana 1 (ver docs/matriz-rotacion.md). Desde hoy no puede bajar.
-      thresholds: { lines: 0, branches: 0, functions: 0, statements: 0 },
+      // Umbral = mayor entre el piso de la semana y la cobertura real del cierre
+      // anterior, redondeada hacia abajo (ver docs/matriz-rotacion.md). Nunca baja.
+      thresholds: { lines: 40, branches: 40, functions: 40, statements: 40 },
     },
   },
   resolve: {
