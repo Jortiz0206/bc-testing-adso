@@ -14,19 +14,7 @@ import { api } from "@/api/client";
 import { toast } from "sonner";
 import ObservacionesEstudiante from "@/components/students/ObservacionesEstudiante";
 import PageHeader from "@/components/layout/PageHeader";
-
-interface EstudianteView {
-  id: string;
-  documento: string;
-  nombre: string;
-  apellido: string;
-  grupo_id: string;
-  grupo_nombre: string;
-  tendencia: string;
-  estado: string;
-  promedio: number;
-  alertas: number;
-}
+import { enriquecerEstudiantes, filtrarEstudiantes, validarFormularioEstudiante, type EstudianteView } from "@/lib/estudiantes";
 
 const getEstadoBadge = (estado: string) => {
   switch (estado) {
@@ -84,63 +72,11 @@ const Estudiantes = () => {
       const gruposList = Array.isArray(gruposRes) ? gruposRes : (gruposRes as any)?.items || [];
       setGrupos(gruposList);
 
-      const gruposMap = new Map(gruposList.map((g: any) => [String(g.id), g.nombre]));
-
       const ests = Array.isArray(estRes) ? estRes : (estRes as any)?.items || [];
       const cals = Array.isArray(calsRes) ? calsRes : (calsRes as any)?.items || [];
       const alertas = Array.isArray(alertasRes) ? alertasRes : (alertasRes as any)?.items || [];
 
-      const enriched: EstudianteView[] = ests.map((e: any) => {
-        const estCals = cals.filter((c: any) => String(c.estudiante_id) === String(e.id));
-        const promedio = estCals.length > 0
-          ? Math.round(estCals.reduce((s: number, c: any) => s + Number(c.calificacion ?? Number(c.nota || 0) * 20), 0) / estCals.length)
-          : 0;
-
-        const estAlertas = alertas.filter((a: any) => String(a.estudiante_id) === String(e.id) && String(a.estado || "").toLowerCase() !== "resolved" && String(a.estado || "") !== "Resuelta");
-
-        // No existe una columna de asistencia en la base de datos: el estado y la
-        // tendencia se calculan a partir de datos reales (promedio, alertas activas
-        // y comparación de promedio entre periodos), no de campos inventados.
-        const periodos = new Map<number, number[]>();
-        estCals.forEach((c: any) => {
-          const p = Number(c.periodo || 1);
-          const nota = Number(c.nota || 0);
-          if (!periodos.has(p)) periodos.set(p, []);
-          periodos.get(p)!.push(nota);
-        });
-        const avgFor = (p: number) => {
-          const notas = periodos.get(p);
-          return notas && notas.length > 0 ? notas.reduce((a, b) => a + b, 0) / notas.length : null;
-        };
-        const periodosOrdenados = Array.from(periodos.keys()).sort((a, b) => a - b);
-        let tendencia = "stable";
-        if (periodosOrdenados.length >= 2) {
-          const primero = avgFor(periodosOrdenados[0]);
-          const ultimo = avgFor(periodosOrdenados[periodosOrdenados.length - 1]);
-          if (primero !== null && ultimo !== null) {
-            if (ultimo > primero + 0.1) tendencia = "up";
-            else if (ultimo < primero - 0.1) tendencia = "down";
-          }
-        }
-
-        let estado = "activo";
-        if (estAlertas.length > 0 && promedio < 60) estado = "crítico";
-        else if (estAlertas.length > 0 || promedio < 70) estado = "en riesgo";
-
-        return {
-          id: String(e.id),
-          documento: String(e.documento || ""),
-          nombre: String(e.nombre || ""),
-          apellido: String(e.apellido || ""),
-          grupo_id: String(e.grupo_id || ""),
-          grupo_nombre: gruposMap.get(String(e.grupo_id)) || "",
-          tendencia,
-          estado,
-          promedio,
-          alertas: estAlertas.length,
-        };
-      });
-
+      const enriched = enriquecerEstudiantes({ estudiantes: ests, calificaciones: cals, alertas, grupos: gruposList });
       setEstudiantes(enriched);
     } catch (error) {
       toast.error("Error al cargar los estudiantes");
@@ -152,9 +88,10 @@ const Estudiantes = () => {
   useEffect(() => { fetchData(); }, []);
 
   const handleSave = async () => {
-    if (!newDocumento || !newNombre || !newApellido || !newGrupoId) {
-      toast.error("Completa todos los campos"); 
-      return; 
+    const error = validarFormularioEstudiante({ documento: newDocumento, nombre: newNombre, apellido: newApellido, grupoId: newGrupoId });
+    if (error) {
+      toast.error(error);
+      return;
     }
     try {
       const payload = {
@@ -202,12 +139,7 @@ const Estudiantes = () => {
     setDialogOpen(true);
   };
 
-  const filtered = estudiantes.filter((e) => {
-    const matchSearch = `${e.nombre} ${e.apellido}`.toLowerCase().includes(search.toLowerCase());
-    const matchGrupo = filterGrupo === "todos" || e.grupo_id === filterGrupo;
-    const matchEstado = filterEstado === "todos" || e.estado === filterEstado;
-    return matchSearch && matchGrupo && matchEstado;
-  });
+  const filtered = filtrarEstudiantes(estudiantes, { busqueda: search, grupo: filterGrupo, estado: filterEstado });
 
   const enRiesgo = estudiantes.filter(e => e.estado === "en riesgo" || e.estado === "crítico").length;
   const promedioGeneral = estudiantes.length > 0 
@@ -242,17 +174,17 @@ const Estudiantes = () => {
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Buscar estudiante..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          <Input aria-label="Buscar estudiante" placeholder="Buscar estudiante..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Select value={filterGrupo} onValueChange={setFilterGrupo}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Grupo" /></SelectTrigger>
+          <SelectTrigger className="w-[160px]" aria-label="Filtrar por grupo"><SelectValue placeholder="Grupo" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos los grupos</SelectItem>
             {grupos.map(g => <SelectItem key={g.id} value={g.id}>{g.nombre}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filterEstado} onValueChange={setFilterEstado}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Estado" /></SelectTrigger>
+          <SelectTrigger className="w-[140px]" aria-label="Filtrar por estado"><SelectValue placeholder="Estado" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos</SelectItem>
             <SelectItem value="activo">Activo</SelectItem>
@@ -298,7 +230,7 @@ const Estudiantes = () => {
                   <TableCell className="text-center">
                     {est.alertas > 0 ? <Badge variant="destructive" className="text-[10px] px-1.5">{est.alertas}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
                   </TableCell>
-                  <TableCell><Button variant="ghost" size="icon" className="h-7 w-7"><ChevronRight className="w-4 h-4" /></Button></TableCell>
+                  <TableCell><Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Ver a ${est.nombre} ${est.apellido}`}><ChevronRight className="w-4 h-4" /></Button></TableCell>
                 </TableRow>
               ))}
             </TableBody>
