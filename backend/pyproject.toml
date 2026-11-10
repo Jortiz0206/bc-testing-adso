@@ -37,9 +37,14 @@ source = ["."]
 omit = [
     # Los tests no son código de la app.
     "tests/*",
+    # Adaptadores de BD: solo traducen a SQL. En los tests de API se reemplazan
+    # por tests/fakes.py y se prueban contra PostgreSQL real con los tests de
+    # integración (semana 6).
+    "repositorio.py",
+    "database.py",
 ]
 
 [tool.coverage.report]
 # Umbral = mayor entre el piso de la semana y la cobertura real del cierre
 # anterior, redondeada hacia abajo (ver docs/matriz-rotacion.md). Nunca baja.
-fail_under = 46
+fail_under = 94
