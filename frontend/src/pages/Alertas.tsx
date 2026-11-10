@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { api } from "@/api/client";
 import PageHeader from "@/components/layout/PageHeader";
 import { toast } from "sonner";
+import { tiempoTranscurrido } from "@/lib/fechas";
 
 type AlertType = "declining" | "low_grade" | "attendance" | "critical";
 type AlertStatus = "active" | "reviewed" | "resolved";
@@ -60,18 +61,6 @@ const priorityByType: Record<AlertType, string> = {
   declining: "baja",
 };
 
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return "N/A";
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - d.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return "Hoy";
-  if (diffDays === 1) return "Ayer";
-  if (diffDays < 7) return `Hace ${diffDays} días`;
-  return `Hace ${Math.floor(diffDays / 7)} semana(s)`;
-};
-
 const Alertas = () => {
   const [alerts, setAlerts] = useState<AlertView[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +84,7 @@ const Alertas = () => {
           status: normalizeStatus(a.estado),
           message: a.mensaje,
           detail: a.tipo || "",
-          date: formatDate(a.fecha_creacion),
+          date: tiempoTranscurrido(a.fecha_creacion),
           priority: priorityByType[type],
         };
       });
@@ -155,14 +144,14 @@ const Alertas = () => {
 
       <div className="flex flex-wrap items-center gap-3">
         <Filter className="w-4 h-4 text-muted-foreground" />
-        <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="text-sm border border-border bg-card rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring/25">
+        <select aria-label="Filtrar por tipo" value={filterType} onChange={(e) => setFilterType(e.target.value)} className="text-sm border border-border bg-card rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring/25">
           <option value="all">Todos los tipos</option>
           <option value="critical">Crítico</option>
           <option value="declining">Tendencia</option>
           <option value="low_grade">Calificación baja</option>
           <option value="attendance">Asistencia</option>
         </select>
-        <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="text-sm border border-border bg-card rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring/25">
+        <select aria-label="Filtrar por estado" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="text-sm border border-border bg-card rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring/25">
           <option value="all">Todos los estados</option>
           <option value="active">Activas</option>
           <option value="reviewed">Revisadas</option>
