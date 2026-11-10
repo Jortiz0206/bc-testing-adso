@@ -74,6 +74,8 @@ const Grupos = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newCurso, setNewCurso] = useState("");
   const [newTurno, setNewTurno] = useState("");
+  // Evita el doble envío (antes un doble clic creaba dos grupos).
+  const [creating, setCreating] = useState(false);
 
   const fetchGrupos = async () => {
     setLoading(true);
@@ -133,6 +135,8 @@ const Grupos = () => {
       toast.error("Completa todos los campos");
       return;
     }
+    if (creating) return;
+    setCreating(true);
     try {
       await api.post("/grupos", {
         nombre: curso.nombre,
@@ -146,6 +150,8 @@ const Grupos = () => {
       fetchGrupos();
     } catch (error) {
       toast.error("Error al crear grupo");
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -324,7 +330,7 @@ const Grupos = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreate}>Crear grupo</Button>
+            <Button onClick={handleCreate} disabled={creating}>Crear grupo</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
