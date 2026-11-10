@@ -131,3 +131,19 @@ def test_actividades_ordenadas_por_fecha_con_nulos_al_final(repo_bd, grupo):
         repo_bd.crear_actividad({**base, "titulo": titulo, "fecha_entrega": fecha})
 
     assert [a["titulo"] for a in repo_bd.listar_actividades(grupo["id"])] == ["enero", "marzo", "sin fecha"]
+
+
+# --- S9 (rol BD, Johanna Ortiz): los conteos del panel de administración -----------
+
+def test_conteos_del_panel_cambian_con_cada_registro(repo_bd, grupo):
+    antes = {clave: repo_bd.contar(clave) for clave in ("grupos", "estudiantes_activos", "alertas_activas")}
+
+    activo = nuevo_estudiante(repo_bd, grupo["id"])
+    nuevo_estudiante(repo_bd, grupo["id"], activo=False)  # inactivo: no cuenta
+    repo_bd.crear_alerta({"estudiante_id": activo["id"], "tipo": "x", "mensaje": "y", "estado": "active"})
+    repo_bd.crear_alerta({"estudiante_id": activo["id"], "tipo": "x", "mensaje": "y", "estado": "resolved"})  # no cuenta
+    repo_bd.crear_grupo({"nombre": "Otro grupo IT", "grado": None, "turno": None, "ano_lectivo": 2026})
+
+    assert repo_bd.contar("grupos") == antes["grupos"] + 1
+    assert repo_bd.contar("estudiantes_activos") == antes["estudiantes_activos"] + 1
+    assert repo_bd.contar("alertas_activas") == antes["alertas_activas"] + 1
