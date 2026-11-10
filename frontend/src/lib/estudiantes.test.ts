@@ -80,6 +80,10 @@ describe("validarFormularioEstudiante", () => {
     expect(validarFormularioEstudiante(valido)).toBeNull();
   });
 
+  it("acepta el id del grupo como número, que es como llega del API", () => {
+    expect(validarFormularioEstudiante({ ...valido, grupoId: 2 })).toBeNull();
+  });
+
   it.each(["documento", "nombre", "apellido", "grupoId"] as const)(
     "rechaza el formulario si %s está vacío o solo tiene espacios",
     (campo) => {

@@ -76,9 +76,10 @@ export function validarFormularioEstudiante(form: {
   documento: string;
   nombre: string;
   apellido: string;
-  grupoId: string;
+  // El id del grupo llega como número desde el API (el Select guarda el valor tal cual).
+  grupoId: string | number;
 }): string | null {
   const campos = [form.documento, form.nombre, form.apellido, form.grupoId];
-  if (campos.some((c) => c.trim() === "")) return "Completa todos los campos";
+  if (campos.some((c) => String(c ?? "").trim() === "")) return "Completa todos los campos";
   return null;
 }

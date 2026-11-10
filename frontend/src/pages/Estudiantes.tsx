@@ -174,17 +174,17 @@ const Estudiantes = () => {
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Buscar estudiante..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          <Input aria-label="Buscar estudiante" placeholder="Buscar estudiante..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Select value={filterGrupo} onValueChange={setFilterGrupo}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="Grupo" /></SelectTrigger>
+          <SelectTrigger className="w-[160px]" aria-label="Filtrar por grupo"><SelectValue placeholder="Grupo" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos los grupos</SelectItem>
             {grupos.map(g => <SelectItem key={g.id} value={g.id}>{g.nombre}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={filterEstado} onValueChange={setFilterEstado}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Estado" /></SelectTrigger>
+          <SelectTrigger className="w-[140px]" aria-label="Filtrar por estado"><SelectValue placeholder="Estado" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos</SelectItem>
             <SelectItem value="activo">Activo</SelectItem>
@@ -230,7 +230,7 @@ const Estudiantes = () => {
                   <TableCell className="text-center">
                     {est.alertas > 0 ? <Badge variant="destructive" className="text-[10px] px-1.5">{est.alertas}</Badge> : <span className="text-xs text-muted-foreground">—</span>}
                   </TableCell>
-                  <TableCell><Button variant="ghost" size="icon" className="h-7 w-7"><ChevronRight className="w-4 h-4" /></Button></TableCell>
+                  <TableCell><Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Ver a ${est.nombre} ${est.apellido}`}><ChevronRight className="w-4 h-4" /></Button></TableCell>
                 </TableRow>
               ))}
             </TableBody>
