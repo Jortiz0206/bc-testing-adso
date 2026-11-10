@@ -21,7 +21,7 @@ from reglas import (
     requiere_alerta_por_promedio, rol_de_sesion,
 )
 from notificador import Notificador, get_notificador
-from repositorio import RegistroRelacionado, Repositorio, get_repo
+from repositorio import DatoDuplicado, ReferenciaInexistente, RegistroRelacionado, Repositorio, get_repo
 
 load_dotenv()
 logger = logging.getLogger("classkids")
@@ -67,6 +67,18 @@ async def error_de_validacion(request: Request, exc: RequestValidationError):
         errores.append({"campo": campo, "mensaje": error["msg"]})
     detalle = "; ".join(f"{e['campo']}: {e['mensaje']}" for e in errores)
     return JSONResponse({"detail": f"Datos inválidos - {detalle}", "errores": errores}, status_code=422)
+
+
+@app.exception_handler(DatoDuplicado)
+async def dato_duplicado(request: Request, exc: DatoDuplicado):
+    # Restricción UNIQUE de la BD (ej. estudiantes.documento): antes respondía 500.
+    return JSONResponse({"detail": "Ya existe un registro con esos datos (por ejemplo, el mismo documento)"}, status_code=409)
+
+
+@app.exception_handler(ReferenciaInexistente)
+async def referencia_inexistente(request: Request, exc: ReferenciaInexistente):
+    # Llave foránea a un grupo, estudiante o materia que no existe: antes respondía 500.
+    return JSONResponse({"detail": "Datos inválidos - se hace referencia a un registro que no existe"}, status_code=422)
 
 
 @app.exception_handler(Exception)

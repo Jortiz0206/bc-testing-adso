@@ -65,3 +65,29 @@ def test_should_delete_existing_student(client, repo, auth_docente):
 
     assert response.status_code == 200
     assert repo.estudiantes == []
+
+
+# --- Reglas nacidas de los hallazgos de integración (semana 6) -----------------
+
+def test_should_answer_409_when_document_already_exists(client, repo, auth_docente):
+    repo.crear_estudiante({**ESTUDIANTE, "grupo_id": None, "activo": True})
+
+    response = client.post("/estudiantes", json={**ESTUDIANTE, "nombre": "Otra"}, headers=auth_docente)
+
+    assert response.status_code == 409
+    assert "documento" in response.json()["detail"]
+
+
+def test_should_allow_updating_a_student_keeping_its_own_document(client, repo, auth_docente):
+    creado = repo.crear_estudiante({**ESTUDIANTE, "grupo_id": None, "activo": True})
+
+    response = client.put(f"/estudiantes/{creado['id']}", json={**ESTUDIANTE, "nombre": "Ana María"}, headers=auth_docente)
+
+    assert response.status_code == 200
+
+
+def test_should_answer_422_when_group_does_not_exist(client, auth_docente):
+    response = client.post("/estudiantes", json={**ESTUDIANTE, "grupo_id": 999}, headers=auth_docente)
+
+    assert response.status_code == 422
+    assert response.json()["detail"].startswith("Datos inválidos")

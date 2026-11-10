@@ -10,7 +10,7 @@ from datetime import datetime
 from itertools import count
 from typing import Optional
 
-from repositorio import RegistroRelacionado
+from repositorio import DatoDuplicado, ReferenciaInexistente, RegistroRelacionado
 
 
 class FakeRepositorio:
@@ -188,10 +188,21 @@ class FakeRepositorio:
         return [{**e, "nombre_grupo": nombres.get(e["grupo_id"])} for e in self.estudiantes
                 if grupo_id is None or e["grupo_id"] == grupo_id]
 
+    def _validar_estudiante(self, d: dict, id: Optional[int] = None) -> None:
+        # Imita las restricciones de la tabla: documento UNIQUE y grupo_id FK.
+        if any(e["documento"] == d["documento"] and e["id"] != id for e in self.estudiantes):
+            raise DatoDuplicado()
+        if d.get("grupo_id") is not None and self._buscar(self.grupos, d["grupo_id"]) is None:
+            raise ReferenciaInexistente()
+
     def crear_estudiante(self, d: dict) -> dict:
+        self._validar_estudiante(d)
         return self._nuevo(self.estudiantes, d)
 
     def actualizar_estudiante(self, id: int, d: dict) -> Optional[dict]:
+        if self._buscar(self.estudiantes, id) is None:
+            return None
+        self._validar_estudiante(d, id)
         return self._actualizar(self.estudiantes, id, d)
 
     def eliminar_estudiante(self, id: int) -> bool:
