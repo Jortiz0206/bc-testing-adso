@@ -47,4 +47,4 @@ omit = [
 [tool.coverage.report]
 # Umbral = mayor entre el piso de la semana y la cobertura real del cierre
 # anterior, redondeada hacia abajo (ver docs/matriz-rotacion.md). Nunca baja.
-fail_under = 94
+fail_under = 99
