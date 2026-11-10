@@ -29,7 +29,7 @@ export default defineConfig({
       ],
       // Umbral = mayor entre el piso de la semana y la cobertura real del cierre
       // anterior, redondeada hacia abajo (ver docs/matriz-rotacion.md). Nunca baja.
-      thresholds: { lines: 40, branches: 40, functions: 40, statements: 40 },
+      thresholds: { lines: 53, branches: 53, functions: 53, statements: 53 },
     },
   },
   resolve: {

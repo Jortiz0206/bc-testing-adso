@@ -18,9 +18,9 @@ Reglas:
 
 | Integrante (usuario GitHub) | S1 | S2 | S3 | S4 | S5 | S6 | S7 | S8 | S9 |
 |---|---|---|---|---|---|---|---|---|---|
-| Johanna Ortiz (`jortiz0206`) | **Front**: E2E inicio de sesión válido · cobertura del frontend | **Backend**: reglas.py: alertas, roles, contraseña y recuperación |  |  |  |  |  |  |  |
-| Alejandra Guio (`alejandraguio2026-ux`) | **Backend**: E2E contraseña incorrecta · cobertura del backend | **BD**: esquemas.py contra las restricciones de las tablas |  |  |  |  |  |  |  |
-| Jan Janos (`jandairollanosnarvaez-bit`) | **BD**: E2E validación del registro de estudiantes | **Front**: reglas de rendimiento, análisis y calificaciones; rutas, cliente HTTP y sesión |  |  |  |  |  |  |  |
+| Johanna Ortiz (`jortiz0206`) | **Front**: E2E inicio de sesión válido · cobertura del frontend | **Backend**: reglas.py: alertas, roles, contraseña y recuperación | **BD**: componente Estudiantes (registro y validación) |  |  |  |  |  |  |
+| Alejandra Guio (`alejandraguio2026-ux`) | **Backend**: E2E contraseña incorrecta · cobertura del backend | **BD**: esquemas.py contra las restricciones de las tablas | **Front**: componente Auth |  |  |  |  |  |  |
+| Jan Janos (`jandairollanosnarvaez-bit`) | **BD**: E2E validación del registro de estudiantes | **Front**: reglas de rendimiento, análisis y calificaciones; rutas, cliente HTTP y sesión | **Backend**: componente AdminUsuarios (usuarios y roles del API) |  |  |  |  |  |  |
 
 ## Cobertura semanal
 
@@ -30,6 +30,7 @@ Anota la cobertura real al cerrar cada semana. El umbral de la semana siguiente 
 |---|---|---|---|
 | S1 (línea base) | 0 | 42.63 | Frontend 0 · Backend 42 |
 | S2 (piso 30) | 40.05 | 46.38 | Frontend 40 · Backend 46 |
+| S3 (piso 40) | 53.06 | 46.38 | Frontend 53 · Backend 46 |
 
 > La línea base del backend no es 0 porque al importar `main.py` se ejecutan las
 > definiciones de rutas y modelos; el único test de la semana (`GET /`) solo cubre el
