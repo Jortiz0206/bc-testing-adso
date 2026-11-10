@@ -4,11 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
-from pydantic import BaseModel
 from typing import Optional
 from secrets import token_urlsafe
 from datetime import datetime, timedelta
-from urllib.parse import urlsplit
 import os
 import smtplib
 from email.message import EmailMessage
@@ -17,6 +15,15 @@ from passlib.context import CryptContext
 from dotenv import load_dotenv
 
 from database import get_db
+from esquemas import (
+    AcceptInvitationSchema, ActividadSchema, AlertaSchema, AlertStatusSchema, AsignacionSchema,
+    CalificacionSchema, EstudianteSchema, ForgotPasswordSchema, GrupoSchema, InvitationSchema,
+    LoginSchema, MateriaSchema, ObservacionSchema, ResetPasswordSchema, RoleUpdateSchema,
+)
+from reglas import (
+    destino_de_recuperacion, nombre_rol_bd, normalize_alert_status, password_es_valida,
+    requiere_alerta_por_promedio, rol_de_sesion,
+)
 
 load_dotenv()
 
@@ -42,103 +49,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# =================================================================
-# 📋 MODELOS PYDANTIC
-# =================================================================
-
-class GrupoSchema(BaseModel):
-    nombre: str
-    grado: Optional[str] = "1°"
-    turno: Optional[str] = "Matutino"
-    año_lectivo: Optional[int] = 2026
-
-class EstudianteSchema(BaseModel):
-    documento: str
-    nombre: str
-    apellido: str
-    grupo_id: Optional[int] = None
-    activo: Optional[bool] = True
-
-class MateriaSchema(BaseModel):
-    nombre: str
-    codigo: Optional[str] = None
-
-class ActividadSchema(BaseModel):
-    materia_id: int
-    grupo_id: int
-    titulo: str
-    tipo: str = "tarea"
-    descripcion: Optional[str] = None
-    fecha_entrega: Optional[str] = None
-
-class CalificacionSchema(BaseModel):
-    estudiante_id: int
-    materia_id: int
-    actividad_id: Optional[int] = None
-    nota: float
-    periodo: Optional[int] = 1
-    observacion: Optional[str] = None
-
-class ObservacionSchema(BaseModel):
-    estudiante_id: int
-    tipo: Optional[str] = "Convivencial"
-    descripcion: str
-
-class AlertaSchema(BaseModel):
-    estudiante_id: int
-    tipo: str
-    mensaje: str
-    estado: Optional[str] = "active"
-
-class LoginSchema(BaseModel):
-    email: str
-    password: str
-
-class ForgotPasswordSchema(BaseModel):
-    email: str
-    redirect_to: Optional[str] = None
-
-class ResetPasswordSchema(BaseModel):
-    password: str
-    token: Optional[str] = None
-
-class InvitationSchema(BaseModel):
-    email: str
-    role: str = "docente"
-
-class AcceptInvitationSchema(BaseModel):
-    password: str
-    nombre: str
-    apellido: Optional[str] = None
-
-class RoleUpdateSchema(BaseModel):
-    role: str
-
-class AlertStatusSchema(BaseModel):
-    estado: str
-
-class AsignacionSchema(BaseModel):
-    docente_id: int
-    materia_id: int
-    grupo_id: int
-
-
-def normalize_alert_status(value: str) -> str:
-    statuses = {
-        "Pendiente": "active",
-        "Activa": "active",
-        "active": "active",
-        "En revisión": "reviewed",
-        "Revisada": "reviewed",
-        "reviewed": "reviewed",
-        "Resuelta": "resolved",
-        "resolved": "resolved",
-    }
-    if value not in statuses:
-        raise HTTPException(status_code=422, detail="Estado de alerta inválido")
-    return statuses[value]
-
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
@@ -223,8 +133,7 @@ def iniciar_sesion(credentials: LoginSchema, db: Session = Depends(get_db)):
     db.execute(text("UPDATE usuarios SET last_sign_in_at = CURRENT_TIMESTAMP WHERE id = :id"), {"id": user.id})
     db.commit()
 
-    role_name = (user.rol or "Docente").lower()
-    role = "admin" if role_name == "administrador" else "docente"
+    role = rol_de_sesion(user.rol)
     return {
         "access_token": create_access_token(user.id, role),
         "token_type": "bearer",
@@ -261,18 +170,10 @@ def solicitar_recuperacion(data: ForgotPasswordSchema, db: Session = Depends(get
             VALUES (:email, :token, :expires_at)
         """), {"email": email, "token": reset_token, "expires_at": expires_at})
         db.commit()
-        # `redirect_to` lo envía el cliente: solo se acepta si su origen (esquema +
-        # host + puerto, comparado de forma exacta, no como prefijo de texto) es uno
-        # de ALLOWED_ORIGINS. Si no, se ignora y se usa FRONTEND_URL. Esto evita que
-        # el enlace de recuperación termine apuntando a un dominio externo — incluido
-        # un dominio que simplemente empiece con el texto de un origen permitido
-        # (ej. "http://localhost:8080.atacante.com").
-        frontend_base = os.getenv('FRONTEND_URL', 'http://127.0.0.1:8080')
-        if data.redirect_to:
-            candidate = urlsplit(data.redirect_to)
-            candidate_origin = f"{candidate.scheme}://{candidate.netloc}"
-            if candidate_origin in ALLOWED_ORIGINS:
-                frontend_base = data.redirect_to
+        # `redirect_to` lo envía el cliente: ver reglas.destino_de_recuperacion.
+        frontend_base = destino_de_recuperacion(
+            data.redirect_to, ALLOWED_ORIGINS, os.getenv('FRONTEND_URL', 'http://127.0.0.1:8080')
+        )
         reset_url = f"{frontend_base.rstrip('/')}?token={reset_token}"
         try:
             email_sent = enviar_reset_por_correo(email, reset_url)
@@ -287,7 +188,7 @@ def solicitar_recuperacion(data: ForgotPasswordSchema, db: Session = Depends(get
 
 @app.post("/auth/reset-password", tags=["Autenticación"])
 def restablecer_password(data: ResetPasswordSchema, db: Session = Depends(get_db)):
-    if len(data.password) < 6:
+    if not password_es_valida(data.password):
         raise HTTPException(status_code=422, detail="La contraseña debe tener al menos 6 caracteres")
     if not data.token:
         raise HTTPException(status_code=400, detail="Enlace de recuperación inválido o expirado")
@@ -345,7 +246,7 @@ def obtener_catalogo_docentes(db: Session = Depends(get_db)):
 @app.post("/usuarios/invitar", tags=["Usuarios"])
 def invitar_usuario(data: InvitationSchema, db: Session = Depends(get_db)):
     email = data.email.strip().lower()
-    role_name = "Administrador" if data.role == "admin" else "Docente"
+    role_name = nombre_rol_bd(data.role)
     existing = db.execute(text("SELECT 1 FROM usuarios WHERE lower(email) = :email AND activo = TRUE"), {"email": email}).first()
     if existing:
         raise HTTPException(status_code=409, detail="El usuario ya existe")
@@ -364,7 +265,7 @@ def invitar_usuario(data: InvitationSchema, db: Session = Depends(get_db)):
 
 @app.put("/usuarios/{user_id}/rol", tags=["Usuarios"])
 def actualizar_rol_usuario(user_id: int, data: RoleUpdateSchema, db: Session = Depends(get_db)):
-    role_name = "Administrador" if data.role == "admin" else "Docente"
+    role_name = nombre_rol_bd(data.role)
     role = db.execute(text("SELECT id FROM user_roles WHERE nombre = :name"), {"name": role_name}).first()
     if not role:
         raise HTTPException(status_code=500, detail="Rol no configurado")
@@ -438,7 +339,7 @@ def consultar_invitacion(token: str, db: Session = Depends(get_db)):
 
 @app.post("/invitaciones/{token}/aceptar", tags=["Usuarios"])
 def aceptar_invitacion(token: str, data: AcceptInvitationSchema, db: Session = Depends(get_db)):
-    if len(data.password) < 6:
+    if not password_es_valida(data.password):
         raise HTTPException(status_code=422, detail="La contraseña debe tener al menos 6 caracteres")
     invitation = db.execute(text("""
         SELECT email, rol_id FROM invitaciones
@@ -624,7 +525,7 @@ def registrar_calificacion(c: CalificacionSchema, db: Session = Depends(get_db))
     query = text("INSERT INTO calificaciones (estudiante_id, materia_id, actividad_id, nota, periodo, observacion) VALUES (:e_id, :m_id, :a_id, :nota, :per, :obs) RETURNING *")
     res = db.execute(query, {"e_id": c.estudiante_id, "m_id": c.materia_id, "a_id": c.actividad_id, "nota": c.nota, "per": c.periodo, "obs": c.observacion}).fetchone()
     average = db.execute(text("SELECT AVG(nota) AS promedio FROM calificaciones WHERE estudiante_id = :id"), {"id": c.estudiante_id}).scalar()
-    if average is not None and float(average) < 3:
+    if requiere_alerta_por_promedio(average):
         active_alert = db.execute(text("""
             SELECT 1 FROM alertas
             WHERE estudiante_id = :id AND tipo = 'low_grade' AND estado IN ('active', 'Pendiente')
