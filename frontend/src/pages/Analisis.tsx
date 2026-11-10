@@ -9,6 +9,7 @@ import {
 import { api } from "@/api/client";
 import { toast } from "sonner";
 import PageHeader from "@/components/layout/PageHeader";
+import { calcularAnalisis } from "@/lib/analisis";
 
 interface GrupoRendimiento { grupo: string; promedio: number; estudiantes: number; }
 interface TendenciaItem { mes: string; promedio: number; }
@@ -50,75 +51,11 @@ const Analisis = () => {
       const calificaciones = Array.isArray(calificacionesRes) ? calificacionesRes : (calificacionesRes as any)?.items || [];
       const actividades = Array.isArray(actividadesRes) ? actividadesRes : (actividadesRes as any)?.items || [];
 
-      setTotalEstudiantes(estudiantes.length);
-
-      const estGrupoMap = new Map<string, string>(estudiantes.map((e: any) => [String(e.id), String(e.grupo_id)]));
-      const grupoNameMap = new Map<string, string>(grupos.map((g: any) => [String(g.id), String(g.nombre)]));
-      const actTipoMap = new Map<string, string>(actividades.map((a: any) => [String(a.id), String(a.tipo || "tarea")]));
-
-      // --- Rendimiento por Grupo ---
-      const grupoCalMap = new Map<string, number[]>();
-      const grupoEstCount = new Map<string, number>();
-      estudiantes.forEach((e: any) => {
-        const gId = String(e.grupo_id);
-        grupoEstCount.set(gId, (grupoEstCount.get(gId) || 0) + 1);
-      });
-      calificaciones.forEach((c: any) => {
-        const gId = estGrupoMap.get(String(c.estudiante_id));
-        if (gId) {
-          if (!grupoCalMap.has(gId)) grupoCalMap.set(gId, []);
-          grupoCalMap.get(gId)!.push(Number(c.calificacion ?? Number(c.nota || 0) * 20));
-        }
-      });
-      const rpg: GrupoRendimiento[] = grupos.map((g: any) => {
-        const cals = grupoCalMap.get(String(g.id)) || [];
-        const prom = cals.length > 0 ? Math.round(cals.reduce((s, v) => s + v, 0) / cals.length) : 0;
-        return { grupo: String(g.nombre || ""), promedio: prom, estudiantes: grupoEstCount.get(String(g.id)) || 0 };
-      }).sort((a, b) => a.grupo.localeCompare(b.grupo));
-      setRendimientoPorGrupo(rpg);
-
-      // --- Promedio general ---
-      const allCals = calificaciones.map((c: any) => Number(c.calificacion ?? Number(c.nota || 0) * 20));
-      const promGen = allCals.length > 0 ? Math.round((allCals.reduce((s, v) => s + v, 0) / allCals.length) * 10) / 10 : 0;
-      setPromedioGeneral(promGen);
-
-      // --- Distribución de rendimiento por estudiante ---
-      // Se guarda también el periodo de cada nota para poder calcular una tendencia
-      // real (no existe una columna `tendencia` en el backend).
-      const estCalMap = new Map<string, { valor: number; periodo: number }[]>();
-      calificaciones.forEach((c: any) => {
-        const estId = String(c.estudiante_id);
-        if (!estCalMap.has(estId)) estCalMap.set(estId, []);
-        estCalMap.get(estId)!.push({
-          valor: Number(c.calificacion ?? Number(c.nota || 0) * 20),
-          periodo: Number(c.periodo || 1),
-        });
-      });
-      const tendenciaEstudiante = (estId: string): string => {
-        const cals = estCalMap.get(estId) || [];
-        const periodos = Array.from(new Set(cals.map((c) => c.periodo))).sort((a, b) => a - b);
-        if (periodos.length < 2) return "estable";
-        const avgFor = (p: number) => {
-          const vals = cals.filter((c) => c.periodo === p).map((c) => c.valor);
-          return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-        };
-        const primero = avgFor(periodos[0]);
-        const ultimo = avgFor(periodos[periodos.length - 1]);
-        if (primero === null || ultimo === null) return "estable";
-        if (ultimo > primero + 2) return "up";
-        if (ultimo < primero - 2) return "down";
-        return "estable";
-      };
-      let excelente = 0, bueno = 0, regular = 0, enRiesgo = 0;
-      estudiantes.forEach((e: any) => {
-        const cals = (estCalMap.get(String(e.id)) || []).map((c) => c.valor);
-        const prom = cals.length > 0 ? cals.reduce((s, v) => s + v, 0) / cals.length : -1;
-        if (prom < 0) return;
-        if (prom >= 90) excelente++;
-        else if (prom >= 80) bueno++;
-        else if (prom >= 70) regular++;
-        else enRiesgo++;
-      });
+      const resultado = calcularAnalisis({ grupos, estudiantes, calificaciones, actividades });
+      const { excelente, bueno, regular, enRiesgo } = resultado.distribucion;
+      setTotalEstudiantes(resultado.totalEstudiantes);
+      setRendimientoPorGrupo(resultado.rendimientoPorGrupo);
+      setPromedioGeneral(resultado.promedioGeneral);
       setDistribucionRiesgo([
         { name: "Excelente (≥90%)", value: excelente, color: "hsl(152, 55%, 42%)" },
         { name: "Bueno (≥80%)", value: bueno, color: "hsl(210, 70%, 55%)" },
@@ -126,67 +63,10 @@ const Analisis = () => {
         { name: "En riesgo (<70%)", value: enRiesgo, color: "hsl(0, 72%, 55%)" },
       ]);
       setTotalEnRiesgo(enRiesgo);
-
-      // --- Estudiantes en riesgo ---
-      const riesgoList: EstudianteRiesgo[] = [];
-      estudiantes.forEach((e: any) => {
-        const cals = (estCalMap.get(String(e.id)) || []).map((c) => c.valor);
-        const prom = cals.length > 0 ? Math.round(cals.reduce((s, v) => s + v, 0) / cals.length) : -1;
-        if (prom >= 0 && prom < 70) {
-          riesgoList.push({
-            nombre: String(e.nombre || ""),
-            apellido: String(e.apellido || ""),
-            grupo: grupoNameMap.get(String(e.grupo_id)) || "",
-            promedio: prom,
-            tendencia: tendenciaEstudiante(String(e.id)),
-          });
-        }
-      });
-      riesgoList.sort((a, b) => a.promedio - b.promedio);
-      setEstudiantesEnRiesgo(riesgoList);
-
-      // --- Tendencia mensual ---
-      const mesesMap = new Map<string, number[]>();
-      const monthNames = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-      calificaciones.forEach((c: any) => {
-        const dateVal = c.fecha_registro || c.created_at || c.fecha;
-        if (!dateVal) return;
-        const d = new Date(dateVal);
-        if (isNaN(d.getTime())) return;
-        const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, "0")}`;
-        if (!mesesMap.has(key)) mesesMap.set(key, []);
-        mesesMap.get(key)!.push(Number(c.calificacion ?? Number(c.nota || 0) * 20));
-      });
-      const sortedMonths = Array.from(mesesMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-      const tend: TendenciaItem[] = sortedMonths.map(([key, vals]) => {
-        const d = new Date(key + "-01");
-        return {
-          mes: monthNames[d.getMonth()] + " " + d.getFullYear().toString().slice(2),
-          promedio: Math.round(vals.reduce((s, v) => s + v, 0) / vals.length),
-        };
-      });
-      setTendenciaMensual(tend);
-
-      if (tend.length >= 2) {
-        const last = tend[tend.length - 1].promedio;
-        const prev = tend[tend.length - 2].promedio;
-        setMejoraMensual(Math.round((last - prev) * 10) / 10);
-      }
-
-      // --- Rendimiento por tipo de actividad ---
-      const tipoCalMap = new Map<string, number[]>();
-      calificaciones.forEach((c: any) => {
-        const tipo = actTipoMap.get(String(c.actividad_id));
-        if (tipo) {
-          if (!tipoCalMap.has(tipo)) tipoCalMap.set(tipo, []);
-          tipoCalMap.get(tipo)!.push(Number(c.calificacion ?? Number(c.nota || 0) * 20));
-        }
-      });
-      const rpt: TipoRendimiento[] = Array.from(tipoCalMap.entries()).map(([tipo, vals]) => ({
-        tipo: tipo.charAt(0).toUpperCase() + tipo.slice(1),
-        promedio: Math.round(vals.reduce((s, v) => s + v, 0) / vals.length),
-      })).sort((a, b) => b.promedio - a.promedio);
-      setRendimientoPorTipo(rpt);
+      setEstudiantesEnRiesgo(resultado.estudiantesEnRiesgo);
+      setTendenciaMensual(resultado.tendenciaMensual);
+      setMejoraMensual(resultado.mejoraMensual);
+      setRendimientoPorTipo(resultado.rendimientoPorTipo);
 
     } catch (error: any) {
       toast.error(error?.message || "Error al cargar los datos de análisis");
