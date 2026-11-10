@@ -21,9 +21,13 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects: [
+    // La sesión del docente se prepara UNA vez (por la UI) y se reutiliza en todos
+    // los tests a través de storageState. Ver tests/auth.setup.ts.
+    { name: 'setup', testMatch: /auth\.setup\.ts/ },
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], storageState: 'playwright/.auth/docente.json' },
+      dependencies: ['setup'],
     },
   ],
   // Playwright levanta el frontend. El backend y la BD los levantas tú antes

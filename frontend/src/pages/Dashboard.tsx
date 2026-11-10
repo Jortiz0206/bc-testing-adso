@@ -64,6 +64,7 @@ const Dashboard = () => {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              aria-label="Buscar estudiante"
               placeholder="Buscar estudiante..."
               className="pl-9 pr-4 py-2 text-sm bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary transition-all w-[240px]"
             />

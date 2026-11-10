@@ -125,7 +125,7 @@ export const RecentStudents = () => {
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-card-foreground">Estudiantes Destacados</h3>
         <button
-          onClick={() => navigate("/estudiantes")}
+          onClick={() => navigate("/app/estudiantes")}
           className="text-xs text-primary font-medium hover:underline"
         >
           Ver todos
@@ -142,7 +142,7 @@ export const RecentStudents = () => {
             return (
               <div
                 key={s.id}
-                onClick={() => navigate(`/estudiantes`)}
+                onClick={() => navigate(`/app/estudiantes?buscar=${encodeURIComponent(s.name)}`)}
                 className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
               >
                 <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">

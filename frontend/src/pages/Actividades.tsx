@@ -212,10 +212,10 @@ const Actividades = () => {
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Buscar actividad..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          <Input aria-label="Buscar actividad" placeholder="Buscar actividad..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <Select value={filterTipo} onValueChange={setFilterTipo}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+          <SelectTrigger className="w-[140px]" aria-label="Filtrar por tipo"><SelectValue placeholder="Tipo" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos los tipos</SelectItem>
             <SelectItem value="tarea">Tarea</SelectItem>
@@ -225,7 +225,7 @@ const Actividades = () => {
           </SelectContent>
         </Select>
         <Select value={filterEstado} onValueChange={setFilterEstado}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Estado" /></SelectTrigger>
+          <SelectTrigger className="w-[140px]" aria-label="Filtrar por estado"><SelectValue placeholder="Estado" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos</SelectItem>
             <SelectItem value="pendiente">Pendiente</SelectItem>
@@ -234,7 +234,7 @@ const Actividades = () => {
           </SelectContent>
         </Select>
         <Select value={filterGrupo} onValueChange={setFilterGrupo}>
-          <SelectTrigger className="w-[140px]"><SelectValue placeholder="Grupo" /></SelectTrigger>
+          <SelectTrigger className="w-[140px]" aria-label="Filtrar por grupo"><SelectValue placeholder="Grupo" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos los grupos</SelectItem>
             {grupos.map(g => <SelectItem key={g.id} value={g.id}>{g.nombre}</SelectItem>)}
@@ -294,26 +294,26 @@ const Actividades = () => {
         <DialogContent>
           <DialogHeader><DialogTitle>Crear nueva actividad</DialogTitle><DialogDescription>Ingresa los datos de la actividad</DialogDescription></DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2"><Label>Título</Label><Input placeholder="Nombre de la actividad" value={newTitulo} onChange={(e) => setNewTitulo(e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="actividad-titulo">Título</Label><Input id="actividad-titulo" placeholder="Nombre de la actividad" value={newTitulo} onChange={(e) => setNewTitulo(e.target.value)} /></div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>Tipo</Label>
-                <Select value={newTipo} onValueChange={setNewTipo}><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+              <div className="space-y-2"><Label htmlFor="actividad-tipo">Tipo</Label>
+                <Select value={newTipo} onValueChange={setNewTipo}><SelectTrigger id="actividad-tipo"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                   <SelectContent><SelectItem value="tarea">Tarea</SelectItem><SelectItem value="examen">Examen</SelectItem><SelectItem value="proyecto">Proyecto</SelectItem><SelectItem value="participación">Participación</SelectItem></SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2"><Label>Grupo</Label>
-                <Select value={newGrupoId} onValueChange={setNewGrupoId}><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+              <div className="space-y-2"><Label htmlFor="actividad-grupo">Grupo</Label>
+                <Select value={newGrupoId} onValueChange={setNewGrupoId}><SelectTrigger id="actividad-grupo"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                   <SelectContent>{grupos.map(g => <SelectItem key={g.id} value={g.id}>{g.nombre}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
-            <div className="space-y-2"><Label>Fecha de entrega</Label><Input type="date" value={newFecha} onChange={(e) => setNewFecha(e.target.value)} /></div>
-            <div className="space-y-2"><Label>Materia</Label>
-              <Select value={newMateriaId} onValueChange={setNewMateriaId}><SelectTrigger><SelectValue placeholder="Seleccionar materia" /></SelectTrigger>
+            <div className="space-y-2"><Label htmlFor="actividad-fecha">Fecha de entrega</Label><Input id="actividad-fecha" type="date" value={newFecha} onChange={(e) => setNewFecha(e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="actividad-materia">Materia</Label>
+              <Select value={newMateriaId} onValueChange={setNewMateriaId}><SelectTrigger id="actividad-materia"><SelectValue placeholder="Seleccionar materia" /></SelectTrigger>
                 <SelectContent>{materias.map(m => <SelectItem key={m.id} value={m.id}>{m.nombre}</SelectItem>)}</SelectContent>
               </Select>
             </div>
-            <div className="space-y-2"><Label>Descripción (opcional)</Label><Textarea placeholder="Instrucciones" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} /></div>
+            <div className="space-y-2"><Label htmlFor="actividad-descripcion">Descripción (opcional)</Label><Textarea id="actividad-descripcion" placeholder="Instrucciones" value={newDesc} onChange={(e) => setNewDesc(e.target.value)} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>

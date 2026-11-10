@@ -1,0 +1,185 @@
+# CI completo de ClassKids: frontend, backend, integración con la BD como servicio
+# y E2E. Cada job exige su umbral de cobertura o sus tests, y deja artefactos para
+# diagnosticar sin reproducir en local.
+name: tests
+
+on:
+  push:
+    branches: [main, "test/**"]
+  pull_request:
+
+jobs:
+  # ── Capa Front ──────────────────────────────────────────────────────────────
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          package_json_file: frontend/package.json
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "22"
+          # Caché del almacén de pnpm, con la clave del lockfile versionado
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      # Reporte de cobertura (HTML con ramas sin cubrir) descargable desde Actions
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: cobertura-frontend
+          path: frontend/coverage/
+          retention-days: 7
+
+  # ── Capa BD: tests unitarios y de API del backend (sin BD) + cobertura ──────
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --locked
+      # Los tests de integración tienen su propio job: aquí se excluyen para que el
+      # log muestre cero tests saltados.
+      - run: uv run pytest --ignore=tests/integracion --cov-report=html:htmlcov
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: cobertura-backend
+          path: backend/htmlcov/
+          retention-days: 7
+
+  # ── Capa API: integración contra PostgreSQL como servicio ────────────────────
+  integracion:
+    runs-on: ubuntu-latest
+    # Misma BD de pruebas que docker-compose.yml (semana 6): PostgreSQL 15, base *_test
+    env:
+      DATABASE_URL: postgresql+psycopg://classkids:classkids@localhost:5433/classkids_test
+      PGPASSWORD: classkids
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: classkids
+          POSTGRES_PASSWORD: classkids
+          POSTGRES_DB: classkids_test
+        ports:
+          - "5433:5432"
+        options: >-
+          --health-cmd "pg_isready -U classkids -d classkids_test"
+          --health-interval 2s
+          --health-retries 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --locked
+      # El esquema se crea igual que en desarrollo, antes de los tests
+      - name: Crear el esquema con init.sql
+        run: psql -h localhost -p 5433 -U classkids -d classkids_test -v ON_ERROR_STOP=1 -q -f init.sql
+      - run: uv run pytest tests/integracion --no-cov
+
+  # ── Capa E2E: los flujos críticos contra el backend con la BD de pruebas ─────
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: classkids
+          POSTGRES_PASSWORD: classkids
+          POSTGRES_DB: classkids_test
+        ports:
+          - "5433:5432"
+        options: >-
+          --health-cmd "pg_isready -U classkids -d classkids_test"
+          --health-interval 2s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgresql+psycopg://classkids:classkids@localhost:5433/classkids_test
+      PGPASSWORD: classkids
+      E2E_DOCENTE_EMAIL: e2e-docente@classkids.local
+      E2E_DOCENTE_NOMBRE: Docente E2E
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Esquema y docente de prueba
+        working-directory: backend
+        run: |
+          uv sync --locked
+          psql -h localhost -p 5433 -U classkids -d classkids_test -v ON_ERROR_STOP=1 -q -f init.sql
+          # Contraseña aleatoria solo para esta corrida: nunca se versiona.
+          PASSWORD="$(openssl rand -hex 16)"
+          echo "::add-mask::$PASSWORD"
+          echo "E2E_DOCENTE_PASSWORD=$PASSWORD" >> "$GITHUB_ENV"
+          HASH="$(uv run python -c 'import sys; from passlib.context import CryptContext; print(CryptContext(schemes=["pbkdf2_sha256"]).hash(sys.argv[1]))' "$PASSWORD")"
+          # psql solo sustituye :'variables' en lo que lee por stdin, no en -c
+          echo "INSERT INTO usuarios (email, nombre, password_hash, rol_id) SELECT :'email', :'nombre', :'hash', id FROM user_roles WHERE nombre = 'Docente';" \
+            | psql -h localhost -p 5433 -U classkids -d classkids_test -v ON_ERROR_STOP=1 -q \
+                -v email="$E2E_DOCENTE_EMAIL" -v nombre="$E2E_DOCENTE_NOMBRE" -v hash="$HASH"
+      # El backend queda corriendo en segundo plano para los pasos siguientes
+      - name: Levantar el backend
+        working-directory: backend
+        env:
+          JWT_SECRET: secreto-solo-para-ci
+        run: uv run uvicorn main:app --port 8000 > api.log 2>&1 &
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          package_json_file: e2e/package.json
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: |
+            e2e/pnpm-lock.yaml
+            frontend/pnpm-lock.yaml
+      # Playwright levanta el frontend con vite: necesita sus dependencias
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      - run: pnpm install --frozen-lockfile
+        working-directory: e2e
+      - run: pnpm exec playwright install --with-deps chromium
+        working-directory: e2e
+      # Espera a que el API responda (máximo 60 s), sin sleeps fijos
+      - name: Esperar el API
+        run: curl --silent --fail --retry 30 --retry-delay 2 --retry-all-errors http://127.0.0.1:8000/
+      - run: pnpm test
+        working-directory: e2e
+      # Si algo falla, el reporte HTML (con trazas) y el log del backend quedan descargables
+      - uses: actions/upload-artifact@v7.0.1
+        if: failure()
+        with:
+          name: e2e-reporte
+          path: |
+            e2e/playwright-report/
+            backend/api.log
+          retention-days: 7
+
+  evidencia-individual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Commits de test por autor esta semana
+        run: |
+          echo "### Commits de test por autor desde el lunes" >> "$GITHUB_STEP_SUMMARY"
+          git shortlog -sn --since="last Monday" HEAD -- '*tests/*' '*.test.*' '*e2e/*' >> "$GITHUB_STEP_SUMMARY"

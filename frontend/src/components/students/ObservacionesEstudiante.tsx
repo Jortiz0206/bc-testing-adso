@@ -100,7 +100,7 @@ export const ObservacionesEstudiante = ({ estudianteId }: { estudianteId: number
       {showForm && (
         <div className="space-y-2 p-3 rounded-lg border border-border bg-muted/30">
           <Select value={tipo} onValueChange={setTipo}>
-            <SelectTrigger className="h-8 text-xs">
+            <SelectTrigger className="h-8 text-xs" aria-label="Tipo de observación">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -110,6 +110,7 @@ export const ObservacionesEstudiante = ({ estudianteId }: { estudianteId: number
             </SelectContent>
           </Select>
           <Textarea
+            aria-label="Observación"
             placeholder="Escribe tu observación..."
             value={contenido}
             onChange={(e) => setContenido(e.target.value)}
@@ -151,6 +152,7 @@ export const ObservacionesEstudiante = ({ estudianteId }: { estudianteId: number
                   <Button
                     size="icon"
                     variant="ghost"
+                    aria-label="Eliminar observación"
                     className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={() => handleDelete(obs.id)}
                   >
