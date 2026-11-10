@@ -1,57 +1,61 @@
-import { test, expect } from '@playwright/test';
-import { crearEstudiante, crearGrupo, entrarComo, sesionDocente, unico } from './api';
+import { test, expect, unico } from './api';
+import { EstudiantesPage } from '../pages/EstudiantesPage';
 
-// Rol BD (Johanna Ortiz, S6): E2E contra el backend con la BD de pruebas.
-// Ningún test depende de datos previos: cada uno crea por el API lo que necesita
-// (grupo, estudiante) con valores únicos, así la suite pasa dos veces seguidas y
-// después de un `docker compose down -v`.
+// Flujo crítico del rol BD — Johanna Ortiz (S6) y Jan Janos (S7): registrar un estudiante.
+// Contra el backend con la BD de pruebas; cada test crea por el API lo que necesita.
 
-test('un estudiante registrado por la UI queda en su grupo y aparece al buscarlo', async ({ page, request }) => {
+test('un estudiante registrado por la UI queda en su grupo y aparece al buscarlo', async ({ page, datos }) => {
   // Arrange
-  const sesion = await sesionDocente(request);
-  const grupo = await crearGrupo(request, sesion.access_token);
+  const grupo = await datos.grupo();
   const apellido = unico('Ruiz');
-  await entrarComo(page, sesion);
-  await page.goto('/app/estudiantes');
+  const estudiantes = new EstudiantesPage(page);
+  await estudiantes.abrir();
 
   // Act
-  await page.getByRole('button', { name: 'Nuevo Estudiante' }).click();
-  const dialogo = page.getByRole('dialog', { name: 'Registrar nuevo estudiante' });
-  await dialogo.getByLabel('Documento').fill(unico('DOC'));
-  await dialogo.getByLabel('Nombre').fill('Ana');
-  await dialogo.getByLabel('Apellido').fill(apellido);
-  await dialogo.getByRole('combobox', { name: 'Grupo' }).click();
-  await page.getByRole('option', { name: grupo.nombre }).click();
-  await dialogo.getByRole('button', { name: 'Registrar' }).click();
+  await estudiantes.llenarRegistro({ documento: unico('DOC'), nombre: 'Ana', apellido, grupo: grupo.nombre });
+  await estudiantes.botonRegistrar().click();
 
   // Assert
   await expect(page.getByText('Estudiante registrado')).toBeVisible();
-  await page.getByRole('textbox', { name: 'Buscar estudiante' }).fill(apellido);
-  const fila = page.getByRole('row', { name: new RegExp(apellido) });
-  await expect(fila).toHaveCount(1);
-  await expect(fila.getByText(grupo.nombre)).toBeVisible();
+  await estudiantes.buscar(apellido);
+  await expect(estudiantes.filaDe(apellido)).toHaveCount(1);
+  await expect(estudiantes.filaDe(apellido).getByText(grupo.nombre)).toBeVisible();
 });
 
-test('registrar un documento que ya existe muestra el motivo y no duplica al estudiante', async ({ page, request }) => {
-  const sesion = await sesionDocente(request);
-  const grupo = await crearGrupo(request, sesion.access_token);
-  const documento = unico('DOC');
-  const apellido = unico('Gil');
-  await crearEstudiante(request, sesion.access_token, { documento, nombre: 'Beto', apellido, grupo_id: grupo.id });
-  await entrarComo(page, sesion);
-  await page.goto('/app/estudiantes');
+test('registrar un documento que ya existe muestra el motivo y no duplica al estudiante', async ({ page, datos }) => {
+  const grupo = await datos.grupo();
+  const existente = await datos.estudiante(grupo.id, { nombre: 'Beto' });
+  const estudiantes = new EstudiantesPage(page);
+  await estudiantes.abrir();
 
-  await page.getByRole('button', { name: 'Nuevo Estudiante' }).click();
-  const dialogo = page.getByRole('dialog', { name: 'Registrar nuevo estudiante' });
-  await dialogo.getByLabel('Documento').fill(documento);
-  await dialogo.getByLabel('Nombre').fill('Otro');
-  await dialogo.getByLabel('Apellido').fill(apellido);
-  await dialogo.getByRole('combobox', { name: 'Grupo' }).click();
-  await page.getByRole('option', { name: grupo.nombre }).click();
-  await dialogo.getByRole('button', { name: 'Registrar' }).click();
+  await estudiantes.llenarRegistro({ documento: existente.documento, nombre: 'Otro', apellido: existente.apellido, grupo: grupo.nombre });
+  await estudiantes.botonRegistrar().click();
 
   await expect(page.getByText(/Ya existe un registro con esos datos/)).toBeVisible();
-  await dialogo.getByRole('button', { name: 'Cancelar' }).click();
-  await page.getByRole('textbox', { name: 'Buscar estudiante' }).fill(apellido);
-  await expect(page.getByRole('row', { name: new RegExp(apellido) })).toHaveCount(1);
+  await estudiantes.dialogo.getByRole('button', { name: 'Cancelar' }).click();
+  await estudiantes.buscar(existente.apellido);
+  await expect(estudiantes.filaDe(existente.apellido)).toHaveCount(1);
+});
+
+test('doble clic en "Registrar" con el API lento crea un solo estudiante', async ({ page, datos }) => {
+  // Parte 3 (defecto de tiempos): el POST se retrasa y la persona hace doble clic.
+  const grupo = await datos.grupo();
+  const apellido = unico('Doble');
+  let posts = 0;
+  await page.route('**/estudiantes', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    posts++;
+    await new Promise((r) => setTimeout(r, 800)); // red lenta simulada en el route, no en el test
+    await route.fallback();
+  });
+  const estudiantes = new EstudiantesPage(page);
+  await estudiantes.abrir();
+  await estudiantes.llenarRegistro({ documento: unico('DOC'), nombre: 'Ana', apellido, grupo: grupo.nombre });
+
+  await estudiantes.botonRegistrar().dblclick();
+
+  await expect(page.getByText('Estudiante registrado')).toBeVisible();
+  expect(posts).toBe(1);
+  const enBd = await datos.listar<{ apellido: string }[]>(`/estudiantes?grupo_id=${grupo.id}`);
+  expect(enBd.filter((e) => e.apellido === apellido)).toHaveLength(1);
 });

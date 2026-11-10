@@ -58,6 +58,8 @@ const Estudiantes = () => {
   const [newNombre, setNewNombre] = useState("");
   const [newApellido, setNewApellido] = useState("");
   const [newGrupoId, setNewGrupoId] = useState("");
+  // Evita el doble envío: el botón queda deshabilitado mientras el POST/PUT está en curso.
+  const [saving, setSaving] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -93,6 +95,8 @@ const Estudiantes = () => {
       toast.error(error);
       return;
     }
+    if (saving) return;
+    setSaving(true);
     try {
       const payload = {
         documento: newDocumento,
@@ -118,6 +122,8 @@ const Estudiantes = () => {
     } catch (error: any) {
       // Se muestra el motivo que da el API (documento repetido, grupo inexistente…).
       toast.error(error?.message || "Error al registrar estudiante");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -312,7 +318,7 @@ const Estudiantes = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave}>{editingEstudiante ? "Guardar cambios" : "Registrar"}</Button>
+            <Button onClick={handleSave} disabled={saving}>{editingEstudiante ? "Guardar cambios" : "Registrar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
