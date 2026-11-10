@@ -18,9 +18,9 @@ Reglas:
 
 | Integrante (usuario GitHub) | S1 | S2 | S3 | S4 | S5 | S6 | S7 | S8 | S9 |
 |---|---|---|---|---|---|---|---|---|---|
-| Johanna Ortiz (`jortiz0206`) | **Front**: E2E inicio de sesión válido · cobertura del frontend | **Backend**: reglas.py: alertas, roles, contraseña y recuperación | **BD**: componente Estudiantes (registro y validación) | **Front**: contrato del API que consume la interfaz | **Backend**: Notificador (correo) con spy, stub y mock |  |  |  |  |
-| Alejandra Guio (`alejandraguio2026-ux`) | **Backend**: E2E contraseña incorrecta · cobertura del backend | **BD**: esquemas.py contra las restricciones de las tablas | **Front**: componente Auth | **Backend**: CRUD de estudiantes y recursos · seguridad y errores | **BD**: repositorio como dependencia (mock autospec) |  |  |  |  |
-| Jan Janos (`jandairollanosnarvaez-bit`) | **BD**: E2E validación del registro de estudiantes | **Front**: reglas de rendimiento, análisis y calificaciones; rutas, cliente HTTP y sesión | **Backend**: componente AdminUsuarios (usuarios y roles del API) | **BD**: repositorio.py y repositorio falso (aislar la BD) | **Front**: cliente HTTP con MSW, Alertas y Grupos · E2E con page.route |  |  |  |  |
+| Johanna Ortiz (`jortiz0206`) | **Front**: E2E inicio de sesión válido · cobertura del frontend | **Backend**: reglas.py: alertas, roles, contraseña y recuperación | **BD**: componente Estudiantes (registro y validación) | **Front**: contrato del API que consume la interfaz | **Backend**: Notificador (correo) con spy, stub y mock | **BD**: repositorio contra PostgreSQL · docker-compose · E2E con la BD de pruebas |  |  |  |
+| Alejandra Guio (`alejandraguio2026-ux`) | **Backend**: E2E contraseña incorrecta · cobertura del backend | **BD**: esquemas.py contra las restricciones de las tablas | **Front**: componente Auth | **Backend**: CRUD de estudiantes y recursos · seguridad y errores | **BD**: repositorio como dependencia (mock autospec) | **Front**: MSW con respuestas reales: Calificaciones, recuperación e invitación |  |  |  |
+| Jan Janos (`jandairollanosnarvaez-bit`) | **BD**: E2E validación del registro de estudiantes | **Front**: reglas de rendimiento, análisis y calificaciones; rutas, cliente HTTP y sesión | **Backend**: componente AdminUsuarios (usuarios y roles del API) | **BD**: repositorio.py y repositorio falso (aislar la BD) | **Front**: cliente HTTP con MSW, Alertas y Grupos · E2E con page.route | **Backend**: endpoints contra la BD real (409/422 en vez de 500) |  |  |  |
 
 ## Cobertura semanal
 
@@ -33,6 +33,7 @@ Anota la cobertura real al cerrar cada semana. El umbral de la semana siguiente 
 | S3 (piso 40) | 53.06 | 46.38 | Frontend 53 · Backend 46 |
 | S4 (piso 50) | 53.06 | 94.10 | Frontend 53 · Backend 94 |
 | S5 (piso 60) | 62.90 | 99.33 | Frontend 62 · Backend 99 |
+| S6 (piso 70, sin `DATABASE_URL`) | 71.96 | 99.34 | Frontend 71 · Backend 99 |
 
 > La línea base del backend no es 0 porque al importar `main.py` se ejecutan las
 > definiciones de rutas y modelos; el único test de la semana (`GET /`) solo cubre el
