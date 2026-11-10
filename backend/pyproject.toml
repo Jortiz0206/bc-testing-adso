@@ -1,0 +1,44 @@
+[project]
+name = "classkids-api"
+version = "2.1.0"
+description = "API de ClassKids (FastAPI + PostgreSQL)"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.28.0",
+    "sqlalchemy>=2.0.28",
+    "psycopg[binary]>=3.1.18",
+    "python-jose[cryptography]>=3.3.0",
+    "passlib>=1.7.4",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.6.4",
+    "python-dotenv>=1.0.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.1.1",
+    "pytest-cov==7.1.0",
+    "httpx>=0.28.1",
+]
+
+[tool.uv]
+# El backend es una app, no una librería: no se empaqueta.
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+# Cada "uv run pytest" mide la cobertura y falla si baja del umbral
+addopts = ["--cov", "--cov-report=term-missing"]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    # Los tests no son código de la app.
+    "tests/*",
+]
+
+[tool.coverage.report]
+# Línea base de la semana 1 (ver docs/matriz-rotacion.md). Desde hoy no puede bajar.
+fail_under = 42
