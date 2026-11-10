@@ -96,13 +96,13 @@ const AdminUsuarios = () => {
             </DialogHeader>
             <div className="space-y-4 py-2">
               <div className="space-y-2">
-                <Label>Correo electrónico</Label>
-                <Input type="email" placeholder="docente@escuela.edu" value={email} onChange={e => setEmail(e.target.value)} />
+                <Label htmlFor="invitacion-email">Correo electrónico</Label>
+                <Input id="invitacion-email" type="email" placeholder="docente@escuela.edu" value={email} onChange={e => setEmail(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Rol</Label>
+                <Label htmlFor="invitacion-rol">Rol</Label>
                 <Select value={role} onValueChange={(v) => setRole(v as any)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger id="invitacion-rol"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="docente">Docente</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
@@ -151,7 +151,9 @@ const AdminUsuarios = () => {
             ) : rows.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">Sin usuarios</TableCell></TableRow>
             ) : rows.map(r => {
-              const isSelf = r.user_id === (user as any)?.id;
+              // El API de usuarios envía el id como texto y el login como número:
+              // se comparan como texto para que el admin no pueda quitarse su propio rol.
+              const isSelf = user != null && String(r.user_id) === String(user.id);
               const nombreCompleto = [r.nombre, r.apellido].filter(Boolean).join(" ");
               return (
                 <TableRow key={r.user_id}>
@@ -161,7 +163,7 @@ const AdminUsuarios = () => {
                   </TableCell>
                   <TableCell>
                     <Select value={r.role} onValueChange={(v) => changeRole(r.user_id, v as any)} disabled={isSelf}>
-                      <SelectTrigger className="w-[150px] h-8">
+                      <SelectTrigger className="w-[150px] h-8" aria-label={`Rol de ${r.email}`}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -175,7 +177,7 @@ const AdminUsuarios = () => {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{r.created_at ? new Date(r.created_at).toLocaleDateString("es") : "N/A"}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="sm" disabled={isSelf} onClick={() => removeUser(r.user_id, r.email)} className="text-destructive hover:text-destructive">
+                    <Button variant="ghost" size="sm" disabled={isSelf} onClick={() => removeUser(r.user_id, r.email)} className="text-destructive hover:text-destructive" aria-label={`Eliminar a ${r.email}`}>
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </TableCell>

@@ -186,10 +186,22 @@ cobertura de cada semana están en [`docs/matriz-rotacion.md`](docs/matriz-rotac
 | Backend (pytest) | `backend/` | `uv run pytest` | Sí (`--cov` en `pyproject.toml`, umbral en `fail_under`) |
 | E2E (Playwright) | `e2e/` | `pnpm test` | No |
 
+### Pruebas de integración con la BD de pruebas
+
+La BD de pruebas (PostgreSQL 15, puerto 5433, base `classkids_test`) está en `docker-compose.yml`
+de la raíz. Los tests de `backend/tests/integracion/` se **saltan** si `DATABASE_URL` no está definida.
+
+```bash
+docker compose up -d --wait
+cd backend && DATABASE_URL=postgresql+psycopg://classkids:classkids@localhost:5433/classkids_test uv run pytest
+docker compose down -v
+```
+
 ### Correr los E2E
 
-1. Levanta la BD y el backend (ver "Instalación"): `docker compose up -d` en `backend/`
-   y `uv run uvicorn main:app --port 8000`.
+1. Levanta la BD de pruebas (`docker compose up -d --wait` en la raíz) y el backend contra ella:
+   `DATABASE_URL=postgresql+psycopg://classkids:classkids@localhost:5433/classkids_test uv run uvicorn main:app --port 8000`
+   en `backend/`. Nunca contra la BD de desarrollo.
 2. Instala dependencias: `pnpm install` en `frontend/` y en `e2e/`, y
    `pnpm exec playwright install chromium` en `e2e/`.
 3. Define las credenciales de prueba (no se versionan):
