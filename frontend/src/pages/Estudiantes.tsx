@@ -115,8 +115,9 @@ const Estudiantes = () => {
       setNewApellido(""); 
       setNewGrupoId("");
       fetchData();
-    } catch (error) {
-      toast.error("Error al registrar estudiante");
+    } catch (error: any) {
+      // Se muestra el motivo que da el API (documento repetido, grupo inexistente…).
+      toast.error(error?.message || "Error al registrar estudiante");
     }
   };
 

@@ -136,13 +136,13 @@ const Calificaciones = () => {
       {/* Selectors */}
       <div className="flex flex-wrap items-center gap-3">
         <Select value={selectedGrupo} onValueChange={setSelectedGrupo}>
-          <SelectTrigger className="w-[200px]"><SelectValue placeholder="Seleccionar grupo" /></SelectTrigger>
+          <SelectTrigger className="w-[200px]" aria-label="Grupo"><SelectValue placeholder="Seleccionar grupo" /></SelectTrigger>
           <SelectContent>
             {grupos.map(g => <SelectItem key={g.id} value={g.id}>{g.nombre}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={selectedActividad} onValueChange={setSelectedActividad} disabled={!selectedGrupo}>
-          <SelectTrigger className="w-[260px]"><SelectValue placeholder="Seleccionar actividad" /></SelectTrigger>
+          <SelectTrigger className="w-[260px]" aria-label="Actividad"><SelectValue placeholder="Seleccionar actividad" /></SelectTrigger>
           <SelectContent>
             {actividades.map(a => (
               <SelectItem key={a.id} value={a.id}>
@@ -206,6 +206,7 @@ const Calificaciones = () => {
                     <TableCell className="text-center">
                       <Input
                         type="number"
+                        aria-label={`Calificación de ${c.nombre} ${c.apellido}`}
                         min={0}
                         max={100}
                         value={c.calificacion}
@@ -214,7 +215,7 @@ const Calificaciones = () => {
                       />
                     </TableCell>
                     <TableCell className="text-center">
-                      <Switch checked={c.entregado} onCheckedChange={() => toggleEntregado(i)} />
+                      <Switch aria-label={`Entregó ${c.nombre} ${c.apellido}`} checked={c.entregado} onCheckedChange={() => toggleEntregado(i)} />
                     </TableCell>
                     <TableCell className="text-center">
                       {c.calificacion >= 90 ? (

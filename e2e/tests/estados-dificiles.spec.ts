@@ -64,6 +64,6 @@ test('si el API rechaza el registro (422), el diálogo sigue abierto con el erro
   await page.getByRole('option', { name: 'Primero A' }).click();
   await dialogo.getByRole('button', { name: 'Registrar' }).click();
 
-  await expect(page.getByText('Error al registrar estudiante')).toBeVisible();
+  await expect(page.getByText('Datos inválidos - documento: String should have at most 50 characters')).toBeVisible();
   await expect(dialogo).toBeVisible();
 });

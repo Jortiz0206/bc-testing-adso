@@ -1,0 +1,105 @@
+{
+  "grupos": [
+    {
+      "id": 1,
+      "nombre": "Grado 1A",
+      "grado": "1°",
+      "turno": "Matutino",
+      "ano_lectivo": 2026
+    }
+  ],
+  "actividades": [
+    {
+      "id": 1,
+      "materia_id": 1,
+      "grupo_id": 1,
+      "titulo": "Taller de Sumas y Restas",
+      "tipo": "tarea",
+      "descripcion": "Resolver la guía interactiva del capítulo 2",
+      "fecha_entrega": "2026-09-05",
+      "materia_nombre": "Matemáticas",
+      "grupo_nombre": "Grado 1A",
+      "estado": "vencida"
+    },
+    {
+      "id": 3,
+      "materia_id": 2,
+      "grupo_id": 1,
+      "titulo": "Lectura Comprensiva",
+      "tipo": "tarea",
+      "descripcion": "Resumen sobre el cuento El Principito",
+      "fecha_entrega": "2026-09-08",
+      "materia_nombre": "Español y Literatura",
+      "grupo_nombre": "Grado 1A",
+      "estado": "vencida"
+    }
+  ],
+  "estudiantes": [
+    {
+      "id": 1,
+      "documento": "100101",
+      "nombre": "Sofía",
+      "apellido": "Gómez",
+      "grupo_id": 1,
+      "activo": true,
+      "nombre_grupo": "Grado 1A"
+    },
+    {
+      "id": 2,
+      "documento": "100102",
+      "nombre": "Mateo",
+      "apellido": "Rodríguez",
+      "grupo_id": 1,
+      "activo": true,
+      "nombre_grupo": "Grado 1A"
+    }
+  ],
+  "calificaciones": [
+    {
+      "id": 1,
+      "estudiante_id": 1,
+      "materia_id": 1,
+      "actividad_id": 1,
+      "nota": 4.8,
+      "periodo": 1,
+      "observacion": "Excelente manejo conceptual",
+      "fecha_registro": "2026-11-09T19:35:25.904826",
+      "estudiante_nombre": "Sofía",
+      "estudiante_apellido": "Gómez",
+      "materia_nombre": "Matemáticas"
+    },
+    {
+      "id": 2,
+      "estudiante_id": 1,
+      "materia_id": 2,
+      "actividad_id": 3,
+      "nota": 4.5,
+      "periodo": 1,
+      "observacion": "Muy buena redacción",
+      "fecha_registro": "2026-11-09T19:35:25.904826",
+      "estudiante_nombre": "Sofía",
+      "estudiante_apellido": "Gómez",
+      "materia_nombre": "Español y Literatura"
+    }
+  ],
+  "errores": {
+    "invitacion_404": {
+      "detail": "Invitación inválida o expirada"
+    },
+    "reset_400": {
+      "detail": "Enlace de recuperación inválido o expirado"
+    },
+    "reset_422": {
+      "detail": "La contraseña debe tener al menos 6 caracteres"
+    },
+    "calificacion_422": {
+      "detail": "Datos inválidos - nota: Input should be less than or equal to 5",
+      "errores": [
+        {
+          "campo": "nota",
+          "mensaje": "Input should be less than or equal to 5"
+        }
+      ]
+    }
+  }
+}

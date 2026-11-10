@@ -147,8 +147,8 @@ describe("Estudiantes", () => {
       expect(put).toHaveBeenCalledWith("/estudiantes/10", expect.objectContaining({ apellido: "Ruiz Mesa", grupo_id: "1" }));
     });
 
-    it("si el API rechaza el registro muestra el error y deja el diálogo abierto", async () => {
-      post.mockRejectedValue(new Error("Error 409"));
+    it("si el API rechaza el registro (documento repetido) muestra su motivo y deja el diálogo abierto", async () => {
+      post.mockRejectedValue(new Error("Ya existe un registro con esos datos (por ejemplo, el mismo documento)"));
       const { user } = renderEstudiantes();
       await user.click(await screen.findByRole("button", { name: "Nuevo Estudiante" }));
       const dialogo = screen.getByRole("dialog", { name: "Registrar nuevo estudiante" });
@@ -160,7 +160,7 @@ describe("Estudiantes", () => {
       await user.click(await screen.findByRole("option", { name: "Primero A" }));
       await user.click(within(dialogo).getByRole("button", { name: "Registrar" }));
 
-      expect(await screen.findByText("Error al registrar estudiante")).toBeInTheDocument();
+      expect(await screen.findByText("Ya existe un registro con esos datos (por ejemplo, el mismo documento)")).toBeInTheDocument();
       expect(screen.getByRole("dialog", { name: "Registrar nuevo estudiante" })).toBeInTheDocument();
     });
   });
